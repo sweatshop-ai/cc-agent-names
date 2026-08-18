@@ -1,7 +1,7 @@
 {
   "name": "agent-names",
-  "version": "0.1.0",
-  "description": "Gives every Claude Code session a human first name, shows it in the statusline, and makes it the address other sessions use with SendMessage.",
+  "version": "0.2.0",
+  "description": "Gives each Claude Code session a human first name in the statusline, usable as its SendMessage address, without taking over the conversation title. Also makes the statusline ~35x faster.",
   "author": {
     "name": "Thierry De Marre"
   },

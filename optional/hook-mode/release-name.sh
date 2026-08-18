@@ -4,7 +4,7 @@
 # Not strictly required -- claim_name.py reaps dead sessions anyway -- but
 # releasing eagerly keeps `agent-names who` honest between sessions.
 set -uo pipefail
-source "$(dirname -- "${BASH_SOURCE[0]}")/../scripts/lib.sh"
+source "$(dirname -- "${BASH_SOURCE[0]}")/../../scripts/lib.sh"
 
 payload=$(cat)
 sid=$(printf '%s' "$payload" | python3 -c \

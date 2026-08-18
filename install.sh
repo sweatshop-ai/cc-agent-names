@@ -1,93 +1,109 @@
 #!/usr/bin/env bash
-# Install claude-agent-names into this machine's Claude Code config.
+# Install claude-agent-names.
 #
-# Adds two hooks and (by default) wraps your existing statusline so the name
-# appears in front of it. Everything it writes is reversible with ./uninstall.sh.
+# Two changes, both reversible with ./uninstall.sh:
+#   1. sources scripts/shell-init.sh from your shell rc, so new sessions get a
+#      name before Claude starts
+#   2. points your statusLine at scripts/statusline.py, which shows the name and
+#      then runs whatever statusline you already had
 #
-#   WRAP_STATUSLINE=0 ./install.sh   # hooks only, leave the statusline alone
+#   WRAP_STATUSLINE=0 ./install.sh   # skip the statusline change
+#   NO_SHELL_RC=1     ./install.sh   # skip the shell rc change
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 SETTINGS="$CFG/settings.json"
 STATE="$CFG/agent-names"
+MARK_BEGIN="# >>> claude-agent-names >>>"
+MARK_END="# <<< claude-agent-names <<<"
 
 [[ -d $CFG ]] || { echo "No Claude config at $CFG" >&2; exit 1; }
 command -v python3 >/dev/null || { echo "python3 is required" >&2; exit 1; }
 
 mkdir -p "$STATE"
-[[ -f $STATE/registry.json ]] || printf '{}' > "$STATE/registry.json"
 
-if [[ -f $SETTINGS ]]; then
-    backup="$SETTINGS.bak.agent-names.$(date +%s)"
-    cp "$SETTINGS" "$backup"
-    echo "backed up settings to $backup"
-else
-    printf '{}' > "$SETTINGS"
+# --- shell rc -------------------------------------------------------------
+if [[ ${NO_SHELL_RC:-0} != 1 ]]; then
+    for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+        [[ -f $rc ]] || continue
+        if grep -qF "$MARK_BEGIN" "$rc"; then
+            echo "shell rc already wired: $rc"
+            continue
+        fi
+        cp "$rc" "$rc.bak.agent-names.$(date +%s)"
+        {
+            printf '\n%s\n' "$MARK_BEGIN"
+            printf 'source "%s/scripts/shell-init.sh"\n' "$ROOT"
+            printf '%s\n' "$MARK_END"
+        } >> "$rc"
+        echo "wired $rc"
+    done
 fi
 
-ROOT="$ROOT" SETTINGS="$SETTINGS" STATE="$STATE" \
-WRAP="${WRAP_STATUSLINE:-1}" python3 <<'PY'
-import json, os
+# --- statusline -----------------------------------------------------------
+if [[ ${WRAP_STATUSLINE:-1} == 1 ]]; then
+    if [[ -f $SETTINGS ]]; then
+        backup="$SETTINGS.bak.agent-names.$(date +%s)"
+        cp "$SETTINGS" "$backup"
+        echo "backed up settings to $backup"
+    else
+        printf '{}' > "$SETTINGS"
+    fi
 
-root = os.environ["ROOT"]
-settings_path = os.environ["SETTINGS"]
-state = os.environ["STATE"]
-wrap = os.environ["WRAP"] == "1"
-wrapper = f"{root}/scripts/statusline.sh"
+    ROOT="$ROOT" SETTINGS="$SETTINGS" STATE="$STATE" python3 <<'PY'
+import json, os, shutil
+
+root, settings_path, state = os.environ["ROOT"], os.environ["SETTINGS"], os.environ["STATE"]
+wrapper = f"{root}/scripts/statusline.py"
 
 with open(settings_path, encoding="utf-8") as fh:
     settings = json.load(fh)
 
-def ensure_hook(event, command, is_async=False):
-    """Add a hook unless an identical command is already registered."""
-    groups = settings.setdefault("hooks", {}).setdefault(event, [])
-    for group in groups:
-        for hook in group.get("hooks", []):
-            if hook.get("command") == command:
-                return False
-    entry = {"type": "command", "command": command}
-    if is_async:
-        entry["async"] = True
-    groups.append({"hooks": [entry]})
-    return True
+config_path = os.path.join(state, "config.json")
+try:
+    with open(config_path, encoding="utf-8") as fh:
+        cfg = json.load(fh)
+except (OSError, ValueError):
+    cfg = {}
 
-done = []
-if ensure_hook("UserPromptSubmit", f'"{root}/hooks/assign-name.sh"'):
-    done.append("UserPromptSubmit hook")
-if ensure_hook("SessionEnd", f'"{root}/hooks/release-name.sh"', is_async=True):
-    done.append("SessionEnd hook")
+current = settings.get("statusLine")
+if isinstance(current, dict):
+    cmd = current.get("command", "")
+    # Preserve the statusline you already had; never re-wrap our own wrapper.
+    if cmd and cmd != wrapper:
+        cfg["statusline"] = cmd
 
-if wrap:
-    current = settings.get("statusLine")
-    config_path = os.path.join(state, "config.json")
-    try:
-        with open(config_path, encoding="utf-8") as fh:
-            cfg = json.load(fh)
-    except (OSError, ValueError):
-        cfg = {}
+inner = cfg.get("statusline", "")
 
-    # Preserve whatever statusline was already configured by running it inside
-    # ours. Guard against re-wrapping our own wrapper on a second install.
-    if isinstance(current, dict):
-        cmd = current.get("command", "")
-        if cmd and cmd != wrapper:
-            cfg["statusline"] = cmd
+# A vendored copy avoids `npx` re-resolving the package on every render, which
+# costs seconds. Only relevant for the fallback path, but worth having.
+vendored = os.path.join(state, "vendor/node_modules/ccstatusline/dist/ccstatusline.js")
+if "ccstatusline" in inner and "npx" in inner and os.path.exists(vendored) and shutil.which("node"):
+    # Remember what was really there, so uninstall restores it faithfully
+    # rather than leaving our optimisation behind.
+    cfg.setdefault("statusline_original", inner)
+    cfg["statusline"] = f"node {vendored}"
+    print(f"inner statusline repointed at vendored copy (was: {inner})")
 
-    with open(config_path, "w", encoding="utf-8") as fh:
-        json.dump(cfg, fh, indent=2)
+# The fast renderer only understands ccstatusline configs, so only enable it
+# when that is what is actually being replaced. It falls back on its own if the
+# config uses anything it cannot reproduce exactly.
+cfg["fast"] = "ccstatusline" in cfg.get("statusline", "")
 
-    padding = current.get("padding", 0) if isinstance(current, dict) else 0
-    if not (isinstance(current, dict) and current.get("command") == wrapper):
-        done.append(f"statusLine wrapped (inner: {cfg.get('statusline') or 'built-in'})")
-    settings["statusLine"] = {"type": "command", "command": wrapper, "padding": padding}
+with open(config_path, "w", encoding="utf-8") as fh:
+    json.dump(cfg, fh, indent=2)
+
+padding = current.get("padding", 0) if isinstance(current, dict) else 0
+settings["statusLine"] = {"type": "command", "command": wrapper, "padding": padding}
 
 with open(settings_path, "w", encoding="utf-8") as fh:
     json.dump(settings, fh, indent=2)
 
-print("installed: " + (", ".join(done) if done else "nothing new (already installed)"))
+print(f"statusLine wrapped (fast renderer: {'on' if cfg['fast'] else 'off'})")
 PY
+fi
 
 echo
-echo "Done. Open a new Claude session and send it any prompt to claim a name."
-echo "Sessions already running keep their current name until restarted."
+echo "Done. Open a NEW terminal (or: source ~/.bashrc) and start Claude there."
+echo "Sessions already running keep their current name."

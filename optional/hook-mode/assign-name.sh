@@ -10,7 +10,7 @@
 # This runs on EVERY prompt, so the already-named path must stay cheap and must
 # never write anything to stdout.
 set -uo pipefail
-source "$(dirname -- "${BASH_SOURCE[0]}")/../scripts/lib.sh"
+source "$(dirname -- "${BASH_SOURCE[0]}")/../../scripts/lib.sh"
 
 payload=$(cat)
 [[ -n $payload ]] || exit 0
@@ -35,7 +35,7 @@ grep -q '"nameSource":"user"' "$record" 2>/dev/null && exit 0
 
 name=$(CAN_SESSION_ID="$sid" CAN_LIVE="$(live_session_ids)" \
        CAN_REGISTRY="$(registry_file)" CAN_NAMES="$(names_file)" \
-       python3 "$(dirname -- "${BASH_SOURCE[0]}")/../scripts/claim_name.py" 2>/dev/null)
+       python3 "$(dirname -- "${BASH_SOURCE[0]}")/claim_name.py" 2>/dev/null)
 
 # Empty output means "already named" (the common case) or a failure. Either way
 # stay silent: a hook that prints junk corrupts the turn.

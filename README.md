@@ -1,30 +1,36 @@
 # claude-agent-names
 
-Give every Claude Code session a human first name — shown in the statusline, and
+Give every Claude Code session a human first name, shown in the statusline and
 usable as the address other sessions send messages to.
 
 ```
-👤 Yuki │ Model: Opus 5 | Ctx: 42k | ⎇ dev | (+3,-1)
+Tomas │ Model: Opus 5 | Ctx: 70.4k | ⎇ master | (+1,-0)
 ```
 
-Instead of `webapp-bc`, `backend-75` and `projects-16`, you get Yuki, Amir and
-Nadia. You can then say *"check that with Yuki"* and mean something precise,
-because `Yuki` is the literal address `SendMessage` delivers to.
+Instead of `webapp-bc`, `backend-75` and `projects-16`, you get Tomas, Yuki and
+Amir — so *"check that with Yuki"* means something precise, because `Yuki` is
+the literal address `SendMessage` delivers to.
 
-## Why this works
+It also makes your statusline dramatically faster: **6.4s → 0.18s per render**
+in the setup it was built against.
 
-Claude Code already names every session — it derives something like
-`projects-16` from the working directory, and that string is what `ListAgents`
-shows and `SendMessage` targets. This plugin replaces the derived name with a
-human one, using two facts about the CLI:
+## Name and title are different things
 
-- A `UserPromptSubmit` hook that returns `sessionTitle` **rewrites the peer
-  name**, not just the conversation title.
-- The statusline's stdin JSON carries `session_name`, so rendering it needs no
-  lookup.
+This is the distinction the whole design turns on:
 
-Nothing is monkey-patched and no launch wrapper is needed. It works for sessions
-started from the terminal, from the IDE, or by another tool.
+| | What it is | Where you see it |
+|---|---|---|
+| **Agent name** | Stable identity, fixed at launch | Statusline footer, `ListAgents`, `SendMessage` |
+| **Conversation title** | What Claude thinks you're doing, rewritten as it learns | Tab / window label |
+
+You want both: the tab should say *"Bootable USB stick for Ubuntu Studio"*,
+while the footer says *Tomas*.
+
+That rules out the obvious implementation. A `UserPromptSubmit` hook returning
+`sessionTitle` does rename the session — but it sets the **title** too, so your
+tabs stop telling you what you're working on. Instead this sets
+`CLAUDE_CODE_SESSION_NAME` before Claude starts, which sets the name and leaves
+the title alone.
 
 ## Install
 
@@ -34,43 +40,61 @@ cd claude-agent-names
 ./install.sh
 ```
 
-The installer backs up `~/.claude/settings.json` first, adds two hooks, and
-wraps whatever statusline you already use so your existing display is preserved
-with the name prepended. To leave your statusline alone:
+The installer backs up everything it touches, then:
+
+1. sources `scripts/shell-init.sh` from your shell rc, wrapping `claude` so a
+   free name is chosen before launch
+2. points `statusLine` at `scripts/statusline.py`, which shows the name followed
+   by whatever statusline you already had
 
 ```bash
-WRAP_STATUSLINE=0 ./install.sh
+WRAP_STATUSLINE=0 ./install.sh   # leave the statusline alone
+NO_SHELL_RC=1     ./install.sh   # leave the shell rc alone
 ```
 
-Open a new session and send it any prompt — it claims a name on first use.
-Sessions already running keep their current name until restarted.
+Open a new terminal and start Claude. Running sessions keep their current name.
 
-To remove everything, including restoring your original statusline:
+`./uninstall.sh` reverses both, restoring your original statusline command and
+leaving your rc byte-identical.
 
-```bash
-./uninstall.sh
-```
+## Why it is faster
+
+Two things were slow, and both are fixed:
+
+- **`npx -y ccstatusline@latest` re-resolves the package on every render** —
+  about 4.5s of pure overhead, paid per render, per open session. The installer
+  repoints at a locally vendored copy.
+- **ccstatusline is a 3MB bundle**; node spends over a second parsing it before
+  drawing anything. So `statusline.py` renders the common widgets natively.
+
+The fast renderer is held to a strict rule: it reproduces your ccstatusline
+config **byte-for-byte**, or it refuses. Powerline mode, extra rows, an unknown
+widget, a colour it hasn't confirmed — any of those and it silently runs the
+real ccstatusline instead. Verified identical across clean, unstaged, staged,
+mixed staged+modified, deleted-file and slashed-branch repository states.
+
+| | per render |
+|---|---|
+| `npx -y ccstatusline@latest` | 6.4s |
+| vendored copy via node | 3.3s |
+| native fast renderer | **0.18s** |
+
+Supported widgets: `model`, `context-length`, `git-branch`, `git-changes`,
+`separator`. Anything else falls back automatically.
 
 ## How names are handed out
 
 Names come from `data/names.txt` — 212 short, phonetically distinct first names
-from a wide spread of languages, chosen so "Yuki" is never misheard as "Yuri".
+from a wide spread of languages, picked so "Yuki" is never misheard as "Yuri".
 
-- A name is claimed on a session's **first prompt** and released when it ends.
-- Claims are guarded by an exclusive lock, so twenty sessions starting at once
-  get twenty different names.
-- A session that dies without cleaning up has its name reaped on the next claim,
-  using Claude's own peer files as the liveness signal.
-- If you run more sessions than you have names, you get `Yuki-2` rather than a
-  collision. Add more names if you see that.
+There is no registry to maintain. Claude Code already writes a peer file per
+live session containing its name, so *"which names are taken"* is answered from
+the system's own state: nothing to drift, nothing to clean up, and a crashed
+session frees its name the moment its peer file disappears. A short-lived
+reservation file covers the gap between choosing a name and Claude registering.
 
-## What does *not* get a name
-
-- **Background subagents** keep their task label (`Merge to main`) — more useful
-  than a first name.
-- **Headless `claude -p` runs** — cron jobs and systemd timers — are skipped, so
-  automation doesn't churn through the pool.
-- **Sessions that never receive a prompt** stay unnamed.
+Run more sessions than you have names and you get `Yuki-2` rather than a
+collision.
 
 ## Customising
 
@@ -79,18 +103,24 @@ Everything user-editable lives in `~/.claude/agent-names/`:
 | File | Purpose |
 |---|---|
 | `names.txt` | Your own roster. Create it to override the bundled pool; upgrades never touch it. |
-| `config.json` | `{"statusline": "<your statusline command>"}` — run inside the wrapper. |
-| `registry.json` | Live session → name. Machine-managed; safe to delete. |
+| `config.json` | `statusline` (inner command), `fast` (use the native renderer). |
+| `reservations.json` | Machine-managed; safe to delete. |
 
-Set `AGENT_NAME_BADGE` to change the `👤` prefix, or to an empty string to drop it.
+Set `AGENT_NAME_BADGE` to put a prefix before the name (e.g. an emoji). Empty by
+default — the same icon on every session adds nothing.
 
-To rename a session by hand, use Claude Code's own `/rename <name>`. A hand-set
-name is respected permanently — the hook checks `nameSource` and never
-overrides it.
+## Sessions this does not name
+
+Only shells that source `shell-init.sh` are wrapped, so sessions started by an
+IDE or another tool keep Claude's derived name. They remain addressable by it.
+
+If you would rather name *every* session and can live without topic titles, see
+[`optional/hook-mode/`](optional/hook-mode/README.md) for the hook-based
+alternative and its trade-off.
 
 ## Requirements
 
-Claude Code ≥ 2.1, `python3`, and a POSIX shell. Tested on Linux.
+Claude Code ≥ 2.1, `python3`, bash or zsh. Tested on Linux.
 
 ## License
 

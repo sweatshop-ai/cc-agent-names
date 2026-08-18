@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+"""Pick a free human name for a session that is about to start.
+
+Prints the name on stdout, or nothing if none could be chosen.
+
+There is deliberately no registry of session ids here. Claude Code already
+writes a peer file per live session containing its name, so "which names are
+taken" is answerable from the system's own state -- no bookkeeping to drift, no
+cleanup to forget, and a crashed session releases its name the moment its peer
+file disappears.
+
+The one gap is the window between choosing a name and Claude writing its peer
+file. A short-lived reservation file covers exactly that window.
+"""
+import fcntl
+import json
+import os
+import random
+import sys
+import time
+from pathlib import Path
+
+RESERVE_TTL = 90  # seconds; generous enough for a slow cold start
+
+cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR", str(Path.home() / ".claude")))
+state = cfg / "agent-names"
+names_file = Path(os.environ.get("CAN_NAMES") or (state / "names.txt"))
+if not names_file.is_file():
+    names_file = Path(__file__).resolve().parent.parent / "data" / "names.txt"
+
+
+def live_names():
+    """Names currently held by running sessions, per Claude's own peer files."""
+    taken = set()
+    sessions = cfg / "sessions"
+    if not sessions.is_dir():
+        return taken
+    for path in sessions.glob("*.json"):
+        try:
+            with path.open(encoding="utf-8") as fh:
+                data = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        name = data.get("name") if isinstance(data, dict) else None
+        if name:
+            taken.add(name)
+    return taken
+
+
+def load_pool():
+    seen, pool = set(), []
+    try:
+        with names_file.open(encoding="utf-8") as fh:
+            for line in fh:
+                name = line.strip()
+                if name and not name.startswith("#") and name not in seen:
+                    seen.add(name)
+                    pool.append(name)
+    except OSError:
+        return []
+    return pool
+
+
+def main():
+    pool = load_pool()
+    if not pool:
+        return
+
+    state.mkdir(parents=True, exist_ok=True)
+    reservations = state / "reservations.json"
+
+    with open(state / "pick.lock", "a+") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+
+        now = time.time()
+        try:
+            with reservations.open(encoding="utf-8") as fh:
+                held = json.load(fh)
+        except (OSError, ValueError):
+            held = {}
+        if not isinstance(held, dict):
+            held = {}
+        # Drop reservations whose session has had ample time to register.
+        held = {n: t for n, t in held.items() if now - t < RESERVE_TTL}
+
+        taken = live_names() | set(held)
+        free = [n for n in pool if n not in taken]
+
+        if free:
+            chosen = random.choice(free)
+        else:
+            # More sessions than names. Suffix rather than collide.
+            base = random.choice(pool)
+            n = 2
+            while f"{base}-{n}" in taken:
+                n += 1
+            chosen = f"{base}-{n}"
+
+        held[chosen] = now
+        tmp = reservations.with_suffix(".tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(held, fh)
+        os.replace(tmp, reservations)
+
+    print(chosen)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception:
+        pass  # never block a session from starting
