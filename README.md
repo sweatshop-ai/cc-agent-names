@@ -125,3 +125,24 @@ Claude Code ≥ 2.1, `python3`, bash or zsh. Tested on Linux.
 ## License
 
 MIT
+
+## Sessions that were already running
+
+Installing names them too — `./install.sh` finishes by renaming every running
+session that still has a machine name, in place, without restarting anything.
+Claude Code re-reads its peer files when it updates status, so a name written
+there sticks and `SendMessage` resolves it immediately.
+
+Anything that slips through is caught later: the statusline adopts a session the
+first time it renders one that is still machine-named. So a session started from
+an IDE, a supervisor, or a shell opened before install ends up named anyway.
+
+Names you set yourself with `/rename` report `nameSource: "user"` and are never
+touched.
+
+To do it by hand at any time:
+
+```bash
+python3 scripts/adopt_all.py --dry-run   # see what would change
+python3 scripts/adopt_all.py
+```

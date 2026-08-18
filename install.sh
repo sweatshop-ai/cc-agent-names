@@ -104,6 +104,13 @@ print(f"statusLine wrapped (fast renderer: {'on' if cfg['fast'] else 'off'})")
 PY
 fi
 
+# --- adopt sessions that are already running --------------------------------
+# Without this, sessions open at install time keep names like `webapp-94`
+# until they are restarted.
 echo
-echo "Done. Open a NEW terminal (or: source ~/.bashrc) and start Claude there."
-echo "Sessions already running keep their current name."
+echo "Naming sessions that are already running:"
+CLAUDE_CONFIG_DIR="$CFG" python3 "$ROOT/scripts/adopt_all.py" || true
+
+echo
+echo "Done. Open a NEW terminal (or: source ~/.bashrc) so new sessions are"
+echo "named at launch."

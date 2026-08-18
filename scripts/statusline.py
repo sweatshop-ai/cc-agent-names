@@ -144,28 +144,11 @@ def fast_render(data):
     return "\x1b[0m" + "".join(parts)
 
 
-def session_name(data):
-    """The session's agent name -- NOT the payload's `session_name`.
-
-    Those are two different things: the payload field carries the *conversation
-    title*, which Claude rewrites as it works out what you are doing ("Bootable
-    USB stick for Ubuntu Studio"). The agent name is the stable identity other
-    sessions address with SendMessage.
-
-    The launcher exports it, and this process inherits that environment, so the
-    env var is the cheap and authoritative source. The peer-file lookup is the
-    fallback for sessions started without the shell wrapper.
-    """
-    name = os.environ.get("CLAUDE_CODE_SESSION_NAME", "").strip()
-    if name:
-        return name
-
-    sid = data.get("session_id")
-    if not sid:
-        return ""
+def peer_record(sid):
+    """(path, record) for this session's peer file, or (None, None)."""
     sessions = config_dir() / "sessions"
-    if not sessions.is_dir():
-        return ""
+    if not sid or not sessions.is_dir():
+        return None, None
     for path in sessions.glob("*.json"):
         try:
             with path.open(encoding="utf-8") as fh:
@@ -173,10 +156,70 @@ def session_name(data):
         except (OSError, ValueError):
             continue
         if isinstance(rec, dict) and rec.get("sessionId") == sid:
-            found = rec.get("name") or ""
-            # Don't echo the conversation title back at the user.
-            return "" if found == data.get("session_name") else found
-    return ""
+            return path, rec
+    return None, None
+
+
+def adopt(path, rec):
+    """Give a machine-named session a human name, in place.
+
+    Claude Code re-reads this file when it updates status, so a name written
+    here sticks and `SendMessage` starts resolving it immediately -- which is
+    how sessions that started before this was installed, or outside a wrapped
+    shell, get named without being restarted.
+
+    Only `derived`/`auto`/`collision` names are replaced. A name you set with
+    /rename reports `nameSource: "user"` and is never touched.
+    """
+    if rec.get("nameSource") not in ("derived", "auto", "collision"):
+        return ""
+    try:
+        chosen = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve().parent / "pick_name.py")],
+            capture_output=True, text=True, timeout=5,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    if not chosen:
+        return ""
+    try:
+        # Re-read: Claude may have rewritten status since we looked.
+        with path.open(encoding="utf-8") as fh:
+            fresh = json.load(fh)
+        if fresh.get("nameSource") not in ("derived", "auto", "collision"):
+            return fresh.get("name") or ""
+        fresh["name"] = chosen
+        fresh.pop("nameSource", None)
+        tmp = path.with_suffix(".json.agent-names-tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(fresh, fh)
+        os.replace(tmp, path)          # atomic: never a half-written peer file
+    except (OSError, ValueError):
+        return ""
+    return chosen
+
+
+def session_name(data):
+    """The session's agent name -- NOT the payload's `session_name`.
+
+    Those are different things: the payload field carries the *conversation
+    title*, which Claude rewrites as it works out what you are doing ("Bootable
+    USB stick for Ubuntu Studio"). The agent name is the stable identity other
+    sessions address with SendMessage.
+    """
+    name = os.environ.get("CLAUDE_CODE_SESSION_NAME", "").strip()
+    if name:
+        return name
+
+    # Started outside a wrapped shell: read, and adopt if still machine-named.
+    path, rec = peer_record(data.get("session_id"))
+    if not rec:
+        return ""
+    if rec.get("nameSource") in ("derived", "auto", "collision"):
+        return adopt(path, rec)
+    found = rec.get("name") or ""
+    # Don't echo the conversation title back at the user.
+    return "" if found == data.get("session_name") else found
 
 
 def run_inner(command, payload):
