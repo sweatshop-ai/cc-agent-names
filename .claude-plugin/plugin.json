@@ -1,0 +1,19 @@
+{
+  "name": "agent-names",
+  "version": "0.1.0",
+  "description": "Gives every Claude Code session a human first name, shows it in the statusline, and makes it the address other sessions use with SendMessage.",
+  "author": {
+    "name": "Thierry De Marre"
+  },
+  "license": "MIT",
+  "keywords": [
+    "sessions",
+    "multi-agent",
+    "statusline",
+    "naming",
+    "collaboration"
+  ],
+  "skills": [
+    "./skills/agent-names"
+  ]
+}
