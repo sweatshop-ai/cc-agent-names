@@ -146,3 +146,22 @@ To do it by hand at any time:
 python3 scripts/adopt_all.py --dry-run   # see what would change
 python3 scripts/adopt_all.py
 ```
+
+### The limit of renaming a live session
+
+Writing the peer file gets you most of the way, but not all of it. Verified by
+pinging a renamed session and reading the envelope of its reply:
+
+| | after in-place rename |
+|---|---|
+| `ListAgents` shows | new name |
+| `SendMessage {to: "<new name>"}` | delivers |
+| The session's own outgoing messages | **still the old name** |
+| Its statusline (via this plugin) | new name |
+
+Claude Code keeps the name it started with in memory, so a renamed session
+answers peers under its old label until it restarts. For the roster, the
+statusline and addressing, adoption is enough. If you want a session to
+*introduce itself* by its new name without restarting, type `/rename <Name>` in
+it — that goes through Claude Code's own path and updates the in-memory copy
+too.
