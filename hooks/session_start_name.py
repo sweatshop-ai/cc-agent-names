@@ -64,6 +64,14 @@ def pick(cwd):
     return out.stdout.strip()
 
 
+def release(name):
+    try:
+        subprocess.run([sys.executable, str(PICK), "--release", name],
+                       capture_output=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
 def write_name(path, name):
     """Replace the name in place, atomically -- never a half-written peer file."""
     try:
@@ -125,7 +133,14 @@ def main():
         return
 
     name = pick(rec.get("cwd") or payload.get("cwd") or "")
-    if name and write_name(path, name):
+    if not name:
+        return
+    if write_name(path, name):
+        # The peer file now says the name is taken, so the reservation that
+        # covered the gap has nothing left to cover. Dropping it here is what
+        # keeps a short-lived session from locking its project out of its own
+        # name on the next launch.
+        release(name)
         emit(name)
 
 

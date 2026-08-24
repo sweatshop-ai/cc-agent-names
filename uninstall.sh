@@ -48,7 +48,7 @@ fi
 if [[ -f $SETTINGS ]]; then
     cp "$SETTINGS" "$SETTINGS.bak.agent-names-uninstall.$(date +%s)"
     ROOT="$ROOT" SETTINGS="$SETTINGS" STATE="$STATE" python3 <<'PY'
-import json, os
+import json, os, shlex
 
 root, settings_path, state = os.environ["ROOT"], os.environ["SETTINGS"], os.environ["STATE"]
 wrapper = f"{root}/scripts/statusline.py"
@@ -64,10 +64,24 @@ ours = {f"{root}/hooks/session_start_name.py",
         f"{root}/hooks/assign-name.sh", f"{root}/hooks/release-name.sh",
         f"{root}/optional/hook-mode/assign-name.sh",
         f"{root}/optional/hook-mode/release-name.sh"}
+def is_ours(entry):
+    """Match on the program the command runs, not on its exact spelling.
+
+    The installer quotes the path, so comparing raw strings misses any checkout
+    whose path needed quoting -- which is how an earlier version of this file
+    silently removed nothing at all.
+    """
+    try:
+        parts = shlex.split(entry.get("command", ""))
+    except ValueError:
+        return False
+    return bool(parts) and parts[0] in ours
+
+
 for event, groups in list(settings.get("hooks", {}).items()):
     kept = []
     for group in groups:
-        hooks = [h for h in group.get("hooks", []) if h.get("command") not in ours]
+        hooks = [h for h in group.get("hooks", []) if not is_ours(h)]
         if hooks:
             group["hooks"] = hooks
             kept.append(group)
@@ -78,7 +92,9 @@ for event, groups in list(settings.get("hooks", {}).items()):
 if not settings.get("hooks"):
     settings.pop("hooks", None)
 
-if isinstance(settings.get("statusLine"), dict) and settings["statusLine"].get("command") == wrapper:
+_sl = settings.get("statusLine")
+_sl_cmd = _sl.get("command", "") if isinstance(_sl, dict) else ""
+if _sl_cmd in (wrapper, shlex.quote(wrapper)):
     inner = ""
     try:
         with open(os.path.join(state, "config.json"), encoding="utf-8") as fh:

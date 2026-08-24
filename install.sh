@@ -47,18 +47,31 @@ if [[ ${NO_HOOK:-0} != 1 ]]; then
         printf '{}' > "$SETTINGS"
     fi
     ROOT="$ROOT" SETTINGS="$SETTINGS" python3 <<'HOOKPY'
-import json, os
+import json, os, shlex
 
 root, settings_path = os.environ["ROOT"], os.environ["SETTINGS"]
-command = f"{root}/hooks/session_start_name.py"
+script = f"{root}/hooks/session_start_name.py"
+# Claude Code runs a command hook through a shell, so a checkout under
+# "My Projects" would otherwise register a hook that cannot execute. Quoting is
+# a no-op for ordinary paths, so normal installs look exactly as before.
+command = shlex.quote(script)
 
 with open(settings_path, encoding="utf-8") as fh:
     settings = json.load(fh)
 
 groups = settings.setdefault("hooks", {}).setdefault("SessionStart", [])
 
+
+def is_ours(entry):
+    try:
+        parts = shlex.split(entry.get("command", ""))
+    except ValueError:
+        return False
+    return bool(parts) and parts[0] == script
+
+
 # Re-running the installer must not stack duplicate hooks.
-if any(h.get("command") == command for g in groups for h in g.get("hooks", [])):
+if any(is_ours(h) for g in groups for h in g.get("hooks", [])):
     print("SessionStart hook already registered")
 else:
     groups.append({"hooks": [{"type": "command", "command": command, "timeout": 10}]})
@@ -97,7 +110,7 @@ if [[ ${WRAP_STATUSLINE:-1} == 1 ]]; then
     fi
 
     ROOT="$ROOT" SETTINGS="$SETTINGS" STATE="$STATE" python3 <<'PY'
-import json, os, shutil
+import json, os, shlex, shutil
 
 root, settings_path, state = os.environ["ROOT"], os.environ["SETTINGS"], os.environ["STATE"]
 wrapper = f"{root}/scripts/statusline.py"
@@ -116,7 +129,7 @@ current = settings.get("statusLine")
 if isinstance(current, dict):
     cmd = current.get("command", "")
     # Preserve the statusline you already had; never re-wrap our own wrapper.
-    if cmd and cmd != wrapper:
+    if cmd and cmd not in (wrapper, shlex.quote(wrapper)):
         cfg["statusline"] = cmd
 
 inner = cfg.get("statusline", "")
@@ -140,7 +153,9 @@ with open(config_path, "w", encoding="utf-8") as fh:
     json.dump(cfg, fh, indent=2)
 
 padding = current.get("padding", 0) if isinstance(current, dict) else 0
-settings["statusLine"] = {"type": "command", "command": wrapper, "padding": padding}
+# Same reason as the hook: this string is run by a shell.
+settings["statusLine"] = {"type": "command", "command": shlex.quote(wrapper),
+                          "padding": padding}
 
 with open(settings_path, "w", encoding="utf-8") as fh:
     json.dump(settings, fh, indent=2)

@@ -113,7 +113,40 @@ def load_pool():
     return pool
 
 
+def release(name):
+    """Drop a reservation, because the name is now in the peer file.
+
+    The caller that writes the peer file itself -- the SessionStart hook -- can
+    say so the moment it lands, microseconds after choosing. Then no reservation
+    outlives its purpose, and a session that exits seconds later never keeps its
+    project locked out of its own name. The shell wrapper cannot do this: it
+    chooses before Claude exists, so it has to fall back on RESERVE_TTL.
+    """
+    reservations = state / "reservations.json"
+    try:
+        with open(state / "pick.lock", "a+") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            try:
+                with reservations.open(encoding="utf-8") as fh:
+                    held = json.load(fh)
+            except (OSError, ValueError):
+                return
+            if not isinstance(held, dict) or name not in held:
+                return
+            held.pop(name, None)
+            tmp = reservations.with_suffix(".tmp")
+            with tmp.open("w", encoding="utf-8") as fh:
+                json.dump(held, fh)
+            os.replace(tmp, reservations)
+    except OSError:
+        pass
+
+
 def main():
+    if len(sys.argv) > 2 and sys.argv[1] == "--release":
+        release(sys.argv[2])
+        return
+
     pool = load_pool()
     if not pool:
         return
