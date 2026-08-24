@@ -64,18 +64,25 @@ ours = {f"{root}/hooks/session_start_name.py",
         f"{root}/hooks/assign-name.sh", f"{root}/hooks/release-name.sh",
         f"{root}/optional/hook-mode/assign-name.sh",
         f"{root}/optional/hook-mode/release-name.sh"}
-def is_ours(entry):
-    """Match on the program the command runs, not on its exact spelling.
+KNOWN = ours | {shlex.quote(o) for o in ours}
 
-    The installer quotes the path, so comparing raw strings misses any checkout
-    whose path needed quoting -- which is how an earlier version of this file
-    silently removed nothing at all.
+
+def is_ours(entry):
+    """Match on the program a command runs, however it was spelled.
+
+    Installs before quoting wrote the path raw, so a checkout under
+    "My Projects" left a command shlex cannot split back into that one path.
+    Compare the raw string too, or an upgrade stacks a duplicate and uninstall
+    removes neither.
     """
+    raw = entry.get("command", "")
+    if raw in KNOWN:
+        return True
     try:
-        parts = shlex.split(entry.get("command", ""))
+        parts = shlex.split(raw)
     except ValueError:
         return False
-    return bool(parts) and parts[0] in ours
+    return bool(parts) and parts[0] in KNOWN
 
 
 for event, groups in list(settings.get("hooks", {}).items()):

@@ -62,12 +62,25 @@ with open(settings_path, encoding="utf-8") as fh:
 groups = settings.setdefault("hooks", {}).setdefault("SessionStart", [])
 
 
+KNOWN = {script, command}
+
+
 def is_ours(entry):
+    """Match on the program a command runs, however it was spelled.
+
+    Installs before quoting wrote the path raw, so a checkout under
+    "My Projects" left a command shlex cannot split back into that one path.
+    Compare the raw string too, or an upgrade stacks a duplicate and uninstall
+    removes neither.
+    """
+    raw = entry.get("command", "")
+    if raw in KNOWN:
+        return True
     try:
-        parts = shlex.split(entry.get("command", ""))
+        parts = shlex.split(raw)
     except ValueError:
         return False
-    return bool(parts) and parts[0] == script
+    return bool(parts) and parts[0] in KNOWN
 
 
 # Re-running the installer must not stack duplicate hooks.
