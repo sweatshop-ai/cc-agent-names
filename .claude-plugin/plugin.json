@@ -1,19 +1,25 @@
 {
   "name": "agent-names",
-  "version": "0.3.0",
-  "description": "Gives each Claude Code session a human first name in the statusline, usable as its SendMessage address, without taking over the conversation title. Also makes the statusline ~35x faster.",
+  "displayName": "Agent Names",
+  "version": "0.4.0",
+  "description": "Gives each Claude Code session a human first name, so parallel sessions become people you can talk about. The name is the address ListAgents shows and SendMessage delivers to, it stays with a project across restarts, and it never overwrites your conversation title.",
   "author": {
-    "name": "Thierry De Marre"
+    "name": "Thierry De Marre",
+    "url": "https://github.com/thinkingtoo"
   },
+  "homepage": "https://github.com/thinkingtoo/claude-agent-names",
+  "repository": "https://github.com/thinkingtoo/claude-agent-names",
   "license": "MIT",
   "keywords": [
     "sessions",
     "multi-agent",
-    "statusline",
     "naming",
-    "collaboration"
+    "collaboration",
+    "sendmessage",
+    "statusline"
   ],
   "skills": [
     "./skills/agent-names"
-  ]
+  ],
+  "hooks": "./hooks/hooks.json"
 }
