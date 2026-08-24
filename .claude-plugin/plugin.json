@@ -20,6 +20,5 @@
   ],
   "skills": [
     "./skills/agent-names"
-  ],
-  "hooks": "./hooks/hooks.json"
+  ]
 }
