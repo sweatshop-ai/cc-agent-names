@@ -53,6 +53,19 @@ Preferences live in `~/.claude/agent-names/projects.json`.
 
 ## Install
 
+As a plugin:
+
+```
+/plugin marketplace add thinkingtoo/claude-agent-names
+/plugin install agent-names@thinkingtoo
+```
+
+That gives you the naming hook and the skill. It does not touch your statusline
+or your shell rc, because a plugin cannot — see
+[using it with your own statusline](#using-it-with-your-own-statusline).
+
+Or from a checkout, which also wires the statusline for you:
+
 ```bash
 git clone https://github.com/thinkingtoo/claude-agent-names.git
 cd claude-agent-names
@@ -62,6 +75,8 @@ cd claude-agent-names
 The installer backs up everything it touches, then registers a `SessionStart`
 hook and points `statusLine` at `scripts/statusline.py`, which shows the name
 followed by whatever statusline you already had.
+
+Pick one or the other. Running both registers the hook twice.
 
 ```bash
 WRAP_STATUSLINE=0 ./install.sh   # leave the statusline alone
