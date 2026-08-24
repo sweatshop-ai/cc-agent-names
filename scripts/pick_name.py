@@ -28,7 +28,12 @@ import sys
 import time
 from pathlib import Path
 
-RESERVE_TTL = 90  # seconds; generous enough for a slow cold start
+# A reservation only has to cover the gap between choosing a name and Claude
+# writing its peer file -- a second or two. After that the peer file itself says
+# the name is taken, so the reservation is redundant. Holding one for longer just
+# means a session that exits soon after starting keeps its project's name locked
+# out of the next launch.
+RESERVE_TTL = 30
 
 cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR", str(Path.home() / ".claude")))
 state = cfg / "agent-names"
@@ -127,7 +132,8 @@ def main():
             held = {}
         if not isinstance(held, dict):
             held = {}
-        # Drop reservations whose session has had ample time to register.
+        # Drop reservations whose session has had ample time to register: if the
+        # name were still in use, a live peer file would say so.
         held = {n: t for n, t in held.items() if now - t < RESERVE_TTL}
 
         projects_file = state / "projects.json"
@@ -138,6 +144,10 @@ def main():
         free = [n for n in pool if n not in taken]
 
         remembered = (projects.get(key) or {}).get("name")
+        # Editing a name out of names.txt is how you retire it. A preference
+        # recorded before that must not resurrect it.
+        if remembered and remembered not in pool:
+            remembered = None
         # Every name another project has claimed, so a new project starts with
         # an identity of its own rather than borrowing one already in use.
         spoken_for = {(v or {}).get("name") for k, v in projects.items() if k != key}

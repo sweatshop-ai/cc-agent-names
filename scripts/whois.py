@@ -16,6 +16,11 @@ So the mapping is exact, not a guess: match the address, read the name.
 
     whois.py uds:/run/user/1000/cc-socks/1075452.sock   ->  Thea
 
+Called with no argument it answers the same question about you, reading the peer
+file for $CLAUDE_CODE_SESSION_ID. That file is the authority on your own name
+too: it holds whatever you were given at startup, or the name you set later with
+/rename, which the context injected at startup cannot know about.
+
 Prints nothing if the address belongs to no live session.
 """
 import json
@@ -43,8 +48,25 @@ def resolve(address):
     return ""
 
 
+def own_name():
+    session_id = os.environ.get("CLAUDE_CODE_SESSION_ID", "")
+    if not session_id:
+        return ""
+    sessions = CFG / "sessions"
+    if not sessions.is_dir():
+        return ""
+    for path in sessions.glob("*.json"):
+        try:
+            with path.open(encoding="utf-8") as fh:
+                rec = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if isinstance(rec, dict) and rec.get("sessionId") == session_id:
+            return rec.get("name") or ""
+    return ""
+
+
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        name = resolve(sys.argv[1])
-        if name:
-            print(name)
+    name = resolve(sys.argv[1]) if len(sys.argv) > 1 else own_name()
+    if name:
+        print(name)

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Remove claude-agent-names: unwire the shell rc and restore your statusline.
+# Remove claude-agent-names: unregister the naming hook, unwire the shell rc if
+# it was wired, and restore your statusline.
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,6 +10,12 @@ STATE="$CFG/agent-names"
 MARK_BEGIN="# >>> claude-agent-names >>>"
 MARK_END="# <<< claude-agent-names <<<"
 
+# A scoped CLAUDE_CONFIG_DIR means this is not the real user config -- a test
+# install, a second profile, a container. Editing $HOME/.bashrc anyway would
+# reach outside the scope the caller asked for, so don't.
+scoped_config() { [[ -n ${CLAUDE_CONFIG_DIR:-} && $CLAUDE_CONFIG_DIR != "$HOME/.claude" ]]; }
+
+if ! scoped_config; then
 for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
     [[ -f $rc ]] || continue
     grep -qF "$MARK_BEGIN" "$rc" || continue
@@ -36,6 +43,7 @@ with open(path, "w", encoding="utf-8") as fh:
 PY
     echo "unwired $rc"
 done
+fi
 
 if [[ -f $SETTINGS ]]; then
     cp "$SETTINGS" "$SETTINGS.bak.agent-names-uninstall.$(date +%s)"
@@ -48,10 +56,14 @@ wrapper = f"{root}/scripts/statusline.py"
 with open(settings_path, encoding="utf-8") as fh:
     settings = json.load(fh)
 
-# Remove hooks from older installs, and any hook-mode hooks pointing at us.
-ours = {f'"{root}/hooks/assign-name.sh"', f'"{root}/hooks/release-name.sh"',
-        f'"{root}/optional/hook-mode/assign-name.sh"',
-        f'"{root}/optional/hook-mode/release-name.sh"'}
+# Every hook command this project has ever registered: the naming hook, plus
+# hook-mode and older layouts. Compared against the raw command string, so no
+# surrounding quotes -- with them these never matched and uninstall silently
+# left our hooks behind.
+ours = {f"{root}/hooks/session_start_name.py",
+        f"{root}/hooks/assign-name.sh", f"{root}/hooks/release-name.sh",
+        f"{root}/optional/hook-mode/assign-name.sh",
+        f"{root}/optional/hook-mode/release-name.sh"}
 for event, groups in list(settings.get("hooks", {}).items()):
     kept = []
     for group in groups:

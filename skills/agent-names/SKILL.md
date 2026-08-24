@@ -26,25 +26,27 @@ file, and in `$CLAUDE_CODE_SESSION_NAME` when a wrapped shell set it.
 
 ## Knowing who you are
 
-You were told your name at session start -- either in the context the naming
-hook injected ("Your name in this session is Oskar"), or through the
-environment if you were launched from a wrapped shell:
+Your peer file is the authority on your own name. Ask it:
 
 ```bash
-echo "$CLAUDE_CODE_SESSION_NAME"
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/whois.py"
 ```
 
-**Trust that name over your own `ListAgents` row.** Claude Code fixes a
-session's name in memory before any hook can run, so a session the hook named
-keeps showing the old machine name (`claude-agent-names-d8`) in its *own*
-self-row and on the envelope of the messages it sends. That stale name is
-visible only to you. Every other session sees your real name, and
-`SendMessage {to: "<your name>"}` reaches you.
+The context injected at session start told you the same name, and usually still
+agrees. Two cases where it does not, and the peer file wins both:
 
-So do not "correct" yourself to the machine name, and never hand it to a peer
-as your address. If you have no name from either source, this session was
-started without the plugin; it keeps Claude's derived name and is addressable
-by that.
+- **You ran `/rename` since.** The injected context cannot know about a name set
+  after startup; the peer file records it, with `nameSource: "user"`. That name
+  is yours -- the user chose it deliberately.
+- **Your own `ListAgents` row shows a machine name** (`claude-agent-names-d8`).
+  Claude Code fixes a session's name in memory before any hook can run, so a
+  session the hook named keeps the old one in its self-row and on the envelope
+  of messages it sends. That stale name is visible only to you: every other
+  session sees your real name, and `SendMessage {to: "<your name>"}` reaches you.
+
+So never "correct" yourself to the machine name and never hand it to a peer as
+your address. If the peer file has no name either, this session started without
+the plugin; it keeps Claude's derived name and is addressable by that.
 
 ## Knowing who else is running
 
@@ -89,9 +91,12 @@ before you refer to the sender by name:
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/whois.py" "<the from address>"
 ```
 
-That prints the sender's real name. Reply to that name. If it prints nothing
-the sender has exited -- reply to the raw `from` address, which always
-delivers.
+That prints the sender's real name. Reply to that name.
+
+If it prints nothing, the sender is gone -- a live session always has a peer
+file, so no match means no session. Do not reply to the raw `from` address
+either: it is that session's socket, and nothing is listening on it any more.
+Tell the user the peer exited instead of sending into a dead socket.
 
 ## Sessions the hook did not reach
 

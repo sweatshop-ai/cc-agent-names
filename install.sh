@@ -1,14 +1,22 @@
 #!/usr/bin/env bash
 # Install claude-agent-names.
 #
-# Two changes, both reversible with ./uninstall.sh:
-#   1. sources scripts/shell-init.sh from your shell rc, so new sessions get a
-#      name before Claude starts
+# All changes are reversible with ./uninstall.sh:
+#   1. registers a SessionStart hook, so every interactive session gets a name --
+#      terminal, IDE extension, desktop app, web
 #   2. points your statusLine at scripts/statusline.py, which shows the name and
 #      then runs whatever statusline you already had
+#   3. optionally sources scripts/shell-init.sh from your shell rc
 #
+# The shell rc is opt-in because the hook already names everything. What it buys
+# is the one thing a hook cannot: Claude Code fixes a session's name in memory
+# before any hook runs, so a hook-named session still signs its outgoing peer
+# messages with the machine name it was born with. A name set in the environment
+# before launch is set in time, so those envelopes read "Yuki" instead.
+#
+#   SHELL_RC=1        ./install.sh   # also wrap `claude` in your shell
 #   WRAP_STATUSLINE=0 ./install.sh   # skip the statusline change
-#   NO_SHELL_RC=1     ./install.sh   # skip the shell rc change
+#   NO_HOOK=1         ./install.sh   # skip the hook (leaves nothing that names)
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,10 +29,47 @@ MARK_END="# <<< claude-agent-names <<<"
 [[ -d $CFG ]] || { echo "No Claude config at $CFG" >&2; exit 1; }
 command -v python3 >/dev/null || { echo "python3 is required" >&2; exit 1; }
 
+# A scoped CLAUDE_CONFIG_DIR means this is not the real user config -- a test
+# install, a second profile, a container. Editing $HOME/.bashrc anyway would
+# reach outside the scope the caller asked for, so don't.
+scoped_config() { [[ -n ${CLAUDE_CONFIG_DIR:-} && $CLAUDE_CONFIG_DIR != "$HOME/.claude" ]]; }
+
 mkdir -p "$STATE"
 
-# --- shell rc -------------------------------------------------------------
-if [[ ${NO_SHELL_RC:-0} != 1 ]]; then
+# --- naming hook ----------------------------------------------------------
+# This is what actually names sessions. It runs wherever Claude Code runs, and
+# writes the name into the session's peer file rather than returning
+# `sessionTitle`, so your tab keeps saying what you are working on.
+if [[ ${NO_HOOK:-0} != 1 ]]; then
+    if [[ -f $SETTINGS ]]; then
+        cp "$SETTINGS" "$SETTINGS.bak.agent-names-hook.$(date +%s)"
+    else
+        printf '{}' > "$SETTINGS"
+    fi
+    ROOT="$ROOT" SETTINGS="$SETTINGS" python3 <<'HOOKPY'
+import json, os
+
+root, settings_path = os.environ["ROOT"], os.environ["SETTINGS"]
+command = f"{root}/hooks/session_start_name.py"
+
+with open(settings_path, encoding="utf-8") as fh:
+    settings = json.load(fh)
+
+groups = settings.setdefault("hooks", {}).setdefault("SessionStart", [])
+
+# Re-running the installer must not stack duplicate hooks.
+if any(h.get("command") == command for g in groups for h in g.get("hooks", [])):
+    print("SessionStart hook already registered")
+else:
+    groups.append({"hooks": [{"type": "command", "command": command, "timeout": 10}]})
+    with open(settings_path, "w", encoding="utf-8") as fh:
+        json.dump(settings, fh, indent=2)
+    print("SessionStart hook registered")
+HOOKPY
+fi
+
+# --- shell rc (opt-in) ----------------------------------------------------
+if [[ ${SHELL_RC:-0} == 1 ]] && ! scoped_config; then
     for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
         [[ -f $rc ]] || continue
         if grep -qF "$MARK_BEGIN" "$rc"; then
@@ -112,5 +157,11 @@ echo "Naming sessions that are already running:"
 CLAUDE_CONFIG_DIR="$CFG" python3 "$ROOT/scripts/adopt_all.py" || true
 
 echo
-echo "Done. Open a NEW terminal (or: source ~/.bashrc) so new sessions are"
-echo "named at launch."
+if [[ ${SHELL_RC:-0} == 1 ]]; then
+    echo "Done. Open a NEW terminal (or: source ~/.bashrc) so new sessions are"
+    echo "named before Claude starts."
+else
+    echo "Done. New sessions are named by the hook -- nothing to reload."
+    echo "Your shell rc was not touched. Run with SHELL_RC=1 if you also want"
+    echo "outgoing peer messages to carry the name (see the README)."
+fi
