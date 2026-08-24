@@ -53,10 +53,12 @@ def peer_file(session_id):
         time.sleep(WAIT_STEP)
 
 
-def pick():
+def pick(cwd):
+    # The session's own directory decides which project's name it inherits.
+    env = dict(os.environ, CAN_CWD=cwd or os.getcwd())
     try:
-        out = subprocess.run([sys.executable, str(PICK)],
-                             capture_output=True, text=True, timeout=5)
+        out = subprocess.run([sys.executable, str(PICK)], env=env,
+                             capture_output=True, text=True, timeout=8)
     except (OSError, subprocess.SubprocessError):
         return ""
     return out.stdout.strip()
@@ -122,7 +124,7 @@ def main():
             emit(existing)
         return
 
-    name = pick()
+    name = pick(rec.get("cwd") or payload.get("cwd") or "")
     if name and write_name(path, name):
         emit(name)
 

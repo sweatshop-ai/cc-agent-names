@@ -11,11 +11,19 @@ file disappears.
 
 The one gap is the window between choosing a name and Claude writing its peer
 file. A short-lived reservation file covers exactly that window.
+
+Names are sticky per project: the session you open in a repo tomorrow gets the
+name the last one had, so "Oskar wrote this" keeps meaning something across
+sessions. Stickiness is a preference, never a reservation -- a name is only
+ever handed out if no live session holds it, so Oskar is still exactly one
+session at a time. Open a second session in the same project and it gets its
+own name rather than waiting for the first to exit.
 """
 import fcntl
 import json
 import os
 import random
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -45,6 +53,45 @@ def live_names():
         if name:
             taken.add(name)
     return taken
+
+
+def project_key(cwd):
+    """What counts as "the same project" for the purposes of keeping a name.
+
+    The git top level, so every session in a repo shares one identity no matter
+    which subdirectory you start from. A worktree reports its own top level, so
+    parallel branches get their own names -- which is what you want, since they
+    are parallel work.
+    """
+    try:
+        out = subprocess.run(["git", "-C", cwd, "rev-parse", "--show-toplevel"],
+                             capture_output=True, text=True, timeout=3)
+    except (OSError, subprocess.SubprocessError):
+        out = None
+    if out is not None and out.returncode == 0:
+        top = out.stdout.strip()
+        if top:
+            return top
+    return os.path.realpath(cwd)
+
+
+def load_projects(path):
+    try:
+        with path.open(encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_projects(path, data):
+    tmp = path.with_suffix(".tmp")
+    try:
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=1, sort_keys=True)
+        os.replace(tmp, path)
+    except OSError:
+        pass
 
 
 def load_pool():
@@ -83,11 +130,27 @@ def main():
         # Drop reservations whose session has had ample time to register.
         held = {n: t for n, t in held.items() if now - t < RESERVE_TTL}
 
+        projects_file = state / "projects.json"
+        projects = load_projects(projects_file)
+        key = project_key(os.environ.get("CAN_CWD") or os.getcwd())
+
         taken = live_names() | set(held)
         free = [n for n in pool if n not in taken]
 
-        if free:
-            chosen = random.choice(free)
+        remembered = (projects.get(key) or {}).get("name")
+        # Every name another project has claimed, so a new project starts with
+        # an identity of its own rather than borrowing one already in use.
+        spoken_for = {(v or {}).get("name") for k, v in projects.items() if k != key}
+
+        if remembered and remembered not in taken:
+            chosen = remembered                    # this project's usual name, free
+        elif free:
+            fresh = [n for n in free if n not in spoken_for]
+            chosen = random.choice(fresh or free)
+            if not remembered:
+                # First session in this project: this becomes its name.
+                projects[key] = {"name": chosen, "last_used": int(now)}
+                save_projects(projects_file, projects)
         else:
             # More sessions than names. Suffix rather than collide.
             base = random.choice(pool)
@@ -95,6 +158,10 @@ def main():
             while f"{base}-{n}" in taken:
                 n += 1
             chosen = f"{base}-{n}"
+
+        if remembered == chosen:
+            projects[key]["last_used"] = int(now)
+            save_projects(projects_file, projects)
 
         held[chosen] = now
         tmp = reservations.with_suffix(".tmp")
