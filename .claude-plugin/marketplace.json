@@ -1,0 +1,24 @@
+{
+  "name": "thinkingtoo",
+  "description": "Claude Code plugins from ThinkingToo.",
+  "owner": {
+    "name": "ThinkingToo",
+    "url": "https://github.com/thinkingtoo"
+  },
+  "plugins": [
+    {
+      "name": "agent-names",
+      "source": "./",
+      "displayName": "Agent Names",
+      "description": "Gives each Claude Code session a human first name, so parallel sessions become people you can talk about. The name is the address ListAgents shows and SendMessage delivers to, it stays with a project across restarts, and it never overwrites your conversation title.",
+      "category": "productivity",
+      "tags": ["sessions", "multi-agent", "naming", "collaboration"],
+      "license": "MIT",
+      "homepage": "https://github.com/thinkingtoo/claude-agent-names",
+      "author": {
+        "name": "Thierry De Marre",
+        "url": "https://github.com/thinkingtoo"
+      }
+    }
+  ]
+}
