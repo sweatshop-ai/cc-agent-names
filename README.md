@@ -194,10 +194,23 @@ default — the same icon on every session adds nothing.
 
 ## Sessions this does not name
 
-Background agents are left alone deliberately: their task label (`Merge to
-main`) says more than a first name would. Headless `claude -p` runs have no peer
-file at all. Sessions already running when you install are named in place by
-`./install.sh`; to do it by hand at any time:
+Task subagents are left alone deliberately: their label (`Merge to main`) says
+more than a first name would. Headless `claude -p` runs have no peer file at all.
+
+**Background jobs (`kind: "bg"`) are named.** They are long-lived and
+conversational, and their auto label is worse than a name: Claude Code derives it
+from the opening prompt and never revises it, so a job that starts on one subject
+and spends its life on another answers to the wrong thing. Naming them needs a
+second hook, because the relabel lands about two minutes after start — long after
+`SessionStart` has finished. So the plugin also runs on `UserPromptSubmit`, where
+the write is idempotent and heals the label the moment it appears. A job carries
+no `nameSource`, so "already ours" is decided by membership of the roster.
+
+Upgrading from a version that only wired `SessionStart`: re-run `./install.sh`.
+It adds the missing `UserPromptSubmit` entry and leaves the existing one alone.
+
+Sessions already running when you install are named in place by `./install.sh`;
+to do it by hand at any time:
 
 ```bash
 python3 scripts/adopt_all.py --dry-run   # see what would change

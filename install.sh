@@ -2,7 +2,8 @@
 # Install claude-agent-names.
 #
 # All changes are reversible with ./uninstall.sh:
-#   1. registers a SessionStart hook, so every interactive session gets a name --
+#   1. registers the naming hook on SessionStart and UserPromptSubmit, so every
+#      interactive session and every background job gets a name --
 #      terminal, IDE extension, desktop app, web
 #   2. points your statusLine at scripts/statusline.py, which shows the name and
 #      then runs whatever statusline you already had
@@ -59,7 +60,10 @@ command = shlex.quote(script)
 with open(settings_path, encoding="utf-8") as fh:
     settings = json.load(fh)
 
-groups = settings.setdefault("hooks", {}).setdefault("SessionStart", [])
+# SessionStart names interactive sessions. UserPromptSubmit is what names
+# background jobs: Claude Code relabels a job about two minutes after it starts,
+# so a SessionStart write is overwritten and only a per-prompt write survives.
+EVENTS = ("SessionStart", "UserPromptSubmit")
 
 
 KNOWN = {script, command}
@@ -83,14 +87,22 @@ def is_ours(entry):
     return bool(parts) and parts[0] in KNOWN
 
 
-# Re-running the installer must not stack duplicate hooks.
-if any(is_ours(h) for g in groups for h in g.get("hooks", [])):
-    print("SessionStart hook already registered")
-else:
+# Re-running the installer must not stack duplicate hooks, and an upgrade from a
+# SessionStart-only install must add the missing event without touching the one
+# already there.
+changed = False
+for event in EVENTS:
+    groups = settings.setdefault("hooks", {}).setdefault(event, [])
+    if any(is_ours(h) for g in groups for h in g.get("hooks", [])):
+        print(f"{event} hook already registered")
+        continue
     groups.append({"hooks": [{"type": "command", "command": command, "timeout": 10}]})
+    changed = True
+    print(f"{event} hook registered")
+
+if changed:
     with open(settings_path, "w", encoding="utf-8") as fh:
         json.dump(settings, fh, indent=2)
-    print("SessionStart hook registered")
 HOOKPY
 fi
 
