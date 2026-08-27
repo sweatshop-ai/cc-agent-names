@@ -1,7 +1,18 @@
 {
-  "description": "Give each interactive session a human first name, and tell the session what it is called.",
+  "description": "Give each interactive session and background job a human first name, and tell the session what it is called.",
   "hooks": {
     "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session_start_name.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
       {
         "hooks": [
           {

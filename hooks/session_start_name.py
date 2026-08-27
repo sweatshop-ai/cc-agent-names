@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
-"""SessionStart hook: give this session a human name, without touching its title.
+"""Give this session a human name, without touching its title.
+
+Runs on two events. SessionStart covers interactive sessions, which are named
+once and keep it. UserPromptSubmit covers background jobs, which cannot be
+named once: Claude Code relabels a `bg` session about two minutes in, with a
+phrase derived from its opening prompt, and that write lands long after
+SessionStart has finished. So for jobs the name is re-asserted on each prompt --
+idempotent, and it heals the label the moment it appears.
 
 Why a hook and not a shell wrapper: a wrapper only reaches sessions you launch
-from a shell you control. Hooks fire wherever Claude Code runs -- terminal, IDE
+from a shell you control, and never reaches a background job at all. Hooks fire wherever Claude Code runs -- terminal, IDE
 extensions, the desktop app, the web -- and they ship inside the plugin, so
 installing it never edits your shell rc.
 
@@ -29,9 +36,32 @@ WAIT_STEP = 0.1
 # with /rename, which reports "user" -- is left alone.
 MACHINE = ("derived", "auto", "collision")
 
+# Interactive sessions and background jobs. Both are long-lived, both are
+# addressed by name in ListAgents, and a job's auto label is worse than a name:
+# it is derived from the opening prompt and never revised, so a job that starts
+# on one subject and spends its life on another answers to the wrong thing.
+# Genuine task subagents are still skipped -- their label IS the task.
+NAMED_KINDS = ("interactive", "bg")
+
 HERE = Path(__file__).resolve().parent
 PICK = HERE.parent / "scripts" / "pick_name.py"
 CFG = Path(os.environ.get("CLAUDE_CONFIG_DIR", str(Path.home() / ".claude")))
+
+
+def roster():
+    """The names this plugin hands out.
+
+    A job's name has no nameSource to check -- Claude Code writes the label
+    without one -- so membership of the roster is what distinguishes a name we
+    gave from a label we should replace.
+    """
+    cfg_names = CFG / "agent-names" / "names.txt"
+    path = cfg_names if cfg_names.is_file() else (HERE.parent / "data" / "names.txt")
+    try:
+        with path.open(encoding="utf-8") as fh:
+            return {ln.strip() for ln in fh if ln.strip() and not ln.startswith("#")}
+    except OSError:
+        return set()
 
 
 def peer_file(session_id):
@@ -72,12 +102,28 @@ def release(name):
         pass
 
 
-def write_name(path, name):
+def replaceable(rec, pool):
+    """True when this session's current name is Claude Code's, not a person's.
+
+    Two shapes of machine name exist. An interactive session carries
+    nameSource "derived"; a background job carries a label with no nameSource
+    at all, so the only way to recognise it is that it is not a name from our
+    roster. A name set with /rename reports "user" and is never touched.
+    """
+    source = rec.get("nameSource")
+    if source == "user":
+        return False
+    if source in MACHINE:
+        return True
+    return (rec.get("name") or "") not in pool
+
+
+def write_name(path, name, pool):
     """Replace the name in place, atomically -- never a half-written peer file."""
     try:
         with path.open(encoding="utf-8") as fh:
             fresh = json.load(fh)
-        if fresh.get("nameSource") not in MACHINE:
+        if not replaceable(fresh, pool):
             return False          # someone named it while we were choosing
         fresh["name"] = name
         fresh.pop("nameSource", None)
@@ -100,9 +146,9 @@ def context(name):
     )
 
 
-def emit(name):
+def emit(name, event="SessionStart"):
     json.dump({"hookSpecificOutput": {
-        "hookEventName": "SessionStart",
+        "hookEventName": event,
         "additionalContext": context(name),
     }}, sys.stdout)
 
@@ -115,33 +161,36 @@ def main():
     session_id = payload.get("session_id") or ""
     if not session_id:
         return
+    event = payload.get("hook_event_name") or "SessionStart"
 
     path, rec = peer_file(session_id)
     if not rec:
         return
-    # Background agents carry a task label ("Merge to main"), which says more
-    # than a first name would. Headless runs have no peer file at all.
-    if rec.get("kind") != "interactive":
+    # Headless runs have no peer file at all; task subagents keep their label,
+    # which says more about them than a first name would.
+    if rec.get("kind") not in NAMED_KINDS:
         return
 
-    if rec.get("nameSource") not in MACHINE:
-        # Already named -- by /rename, or by the launcher on an earlier start.
-        # Still tell the session what it is called, so it can sign its replies.
+    pool = roster()
+    if not replaceable(rec, pool):
+        # Already named -- by /rename, by us on an earlier start, or by us on an
+        # earlier prompt. Tell the session what it is called only at the start of
+        # a session; repeating it on every prompt would be noise.
         existing = rec.get("name") or ""
-        if existing:
+        if existing and event == "SessionStart":
             emit(existing)
         return
 
     name = pick(rec.get("cwd") or payload.get("cwd") or "")
     if not name:
         return
-    if write_name(path, name):
+    if write_name(path, name, pool):
         # The peer file now says the name is taken, so the reservation that
         # covered the gap has nothing left to cover. Dropping it here is what
         # keeps a short-lived session from locking its project out of its own
         # name on the next launch.
         release(name)
-        emit(name)
+        emit(name, event)
 
 
 if __name__ == "__main__":

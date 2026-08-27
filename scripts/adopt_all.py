@@ -6,6 +6,9 @@ names like `webapp-94` until you restart them. New sessions don't need this:
 the launcher names them, and the statusline adopts any that slip through.
 
 Names set by hand with /rename (`nameSource: "user"`) are never touched.
+
+Background jobs are adopted too. Their label carries no nameSource, so the test
+for "already ours" is membership of the roster rather than that field.
 """
 import json
 import os
@@ -15,6 +18,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 MACHINE_NAMED = ("derived", "auto", "collision")
+NAMED_KINDS = ("interactive", "bg")
 
 cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR", str(Path.home() / ".claude")))
 dry_run = "--dry-run" in sys.argv
@@ -37,7 +41,19 @@ def pick(cwd):
     return out.stdout.strip()
 
 
+def roster():
+    """The names this plugin hands out, from the same file pick_name.py reads."""
+    override = cfg / "agent-names" / "names.txt"
+    path = override if override.is_file() else (HERE.parent / "data" / "names.txt")
+    try:
+        with path.open(encoding="utf-8") as fh:
+            return {ln.strip() for ln in fh if ln.strip() and not ln.startswith("#")}
+    except OSError:
+        return set()
+
+
 def main():
+    pool = roster()
     sessions = cfg / "sessions"
     if not sessions.is_dir():
         print("no sessions directory")
@@ -50,9 +66,14 @@ def main():
                 rec = json.load(fh)
         except (OSError, ValueError):
             continue
-        if not isinstance(rec, dict) or rec.get("kind") != "interactive":
+        if not isinstance(rec, dict) or rec.get("kind") not in NAMED_KINDS:
             continue
-        if rec.get("nameSource") not in MACHINE_NAMED:
+        # A background job carries a label with no nameSource, so roster
+        # membership is the only signal that the name is already ours.
+        if rec.get("nameSource") not in MACHINE_NAMED and (rec.get("name") or "") in pool:
+            skipped += 1
+            continue
+        if rec.get("nameSource") == "user":
             skipped += 1
             continue
 
@@ -68,7 +89,9 @@ def main():
         try:
             with path.open(encoding="utf-8") as fh:
                 fresh = json.load(fh)
-            if fresh.get("nameSource") not in MACHINE_NAMED:
+            if fresh.get("nameSource") == "user":
+                continue
+            if fresh.get("nameSource") not in MACHINE_NAMED and (fresh.get("name") or "") in pool:
                 continue
             fresh["name"] = new
             fresh.pop("nameSource", None)
