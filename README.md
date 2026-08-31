@@ -25,6 +25,22 @@ the literal address `SendMessage` delivers to.
 Ask a session who it is and it answers. Ask it to check something with Yuki and
 it finds Yuki and asks.
 
+![Four named sessions coordinating](docs/agents-talking.gif)
+
+Four sessions on one repo. Nadia is coordinating; Yuki, Tomas and Amir each own
+one file. Nobody is addressed by a machine name — Nadia sends to *Tomas* and to
+*Amir*, and their replies arrive stamped with the sender's name.
+
+<details>
+<summary>The same moment as a still</summary>
+
+![Nadia dispatching work to Tomas and Amir](docs/nadia-dispatch.png)
+
+`"Go ahead, hand grid to Amir" → sent to Tomas` — the lead session addressing a
+peer by name, and the peer receiving it as `Message from @Nadia`.
+
+</details>
+
 ## Name and title are different things
 
 This is the distinction the whole design turns on:
