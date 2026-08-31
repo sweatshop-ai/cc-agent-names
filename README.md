@@ -238,7 +238,7 @@ Windows; the optional shell wrapper needs bash or zsh, and warns rather than
 going quiet if it is sourced from anything else.
 
 Tested on Linux, under bash 5.2 and zsh 5.9. macOS is not yet verified end to
-end — [#10](https://github.com/thinkingtoo/cc-agent-names/issues/10) tracks
+end — [#1](https://github.com/thinkingtoo/cc-agent-names/issues/1) tracks
 that.
 
 ## License
