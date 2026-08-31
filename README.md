@@ -223,7 +223,12 @@ touched.
 ## Requirements
 
 Claude Code ≥ 2.1 and `python3`. The hook path works on Linux, macOS and
-Windows; the optional shell wrapper needs bash or zsh. Tested on Linux.
+Windows; the optional shell wrapper needs bash or zsh, and warns rather than
+going quiet if it is sourced from anything else.
+
+Tested on Linux, under bash 5.2 and zsh 5.9. macOS is not yet verified end to
+end — [#10](https://github.com/thinkingtoo/claude-agent-names/issues/10) tracks
+that.
 
 ## License
 

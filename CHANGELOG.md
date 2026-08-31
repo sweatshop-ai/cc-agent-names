@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- **The shell wrapper picks its branch by shell, not by guesswork.** It tested
+  `BASH_SOURCE` to decide whether it was in bash, which worked but leaned on
+  zsh happening to return empty for an unset bash array. It now reads
+  `ZSH_VERSION` / `BASH_VERSION`. Behaviour in bash and zsh is unchanged --
+  verified under bash 5.2 and zsh 5.9.
+- **Sourcing from a third shell no longer dies on `Bad substitution`.** dash is
+  `/bin/sh` on Debian and Ubuntu, and the old bash test was a parse error there,
+  which aborted the file before its own fallback could run. Unrecognised shells
+  now get one line on stderr and an untouched `claude`.
+- **An unresolvable plugin root says so.** It used to export an empty root and
+  leave a wrapper that started every session unnamed, silently, forever.
+- `tests/test_shell_init.py` covers all of the above, per shell, asserting on
+  the name that actually reached the `claude` process.
+
 ## 0.4.0
 
 Sessions are named by a `SessionStart` hook instead of a shell wrapper, and a
