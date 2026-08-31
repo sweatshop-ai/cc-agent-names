@@ -22,6 +22,17 @@ Instead of `webapp-bc`, `backend-75` and `projects-16`, you get Tomas, Yuki and
 Amir — and *"check that with Yuki"* means something precise, because `Yuki` is
 the literal address `SendMessage` delivers to.
 
+**And it is a name you can type.** Claude Code lets you `@`-mention another live
+session, so the name becomes something you address directly, in the prompt:
+
+```
+check with @Yuki and @Tomas before you deploy
+```
+
+That is the difference the plugin makes to a feature you already had. `@` a
+session called `webapp-bc` and you first have to work out which one that is;
+`@Yuki` you just know.
+
 Ask a session who it is and it answers. Ask it to check something with Yuki and
 it finds Yuki and asks.
 
