@@ -38,7 +38,7 @@ agrees. Two cases where it does not, and the peer file wins both:
 - **You ran `/rename` since.** The injected context cannot know about a name set
   after startup; the peer file records it, with `nameSource: "user"`. That name
   is yours -- the user chose it deliberately.
-- **Your own `ListAgents` row shows a machine name** (`claude-agent-names-d8`).
+- **Your own `ListAgents` row shows a machine name** (`cc-agent-names-d8`).
   Claude Code fixes a session's name in memory before any hook can run, so a
   session the hook named keeps the old one in its self-row and on the envelope
   of messages it sends. That stale name is visible only to you: every other
@@ -78,7 +78,7 @@ A message arrives wrapped like this:
 
 ```
 <cross-session-message from="uds:/run/user/1000/cc-socks/1075452.sock"
-                       from-name="claude-agent-names-de">
+                       from-name="cc-agent-names-de">
 ```
 
 `from-name` goes stale for the same reason your own row does -- the sender was

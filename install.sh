@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install claude-agent-names.
+# Install cc-agent-names.
 #
 # All changes are reversible with ./uninstall.sh:
 #   1. registers the naming hook on SessionStart and UserPromptSubmit, so every
@@ -24,8 +24,8 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 SETTINGS="$CFG/settings.json"
 STATE="$CFG/agent-names"
-MARK_BEGIN="# >>> claude-agent-names >>>"
-MARK_END="# <<< claude-agent-names <<<"
+MARK_BEGIN="# >>> cc-agent-names >>>"
+MARK_END="# <<< cc-agent-names <<<"
 
 [[ -d $CFG ]] || { echo "No Claude config at $CFG" >&2; exit 1; }
 command -v python3 >/dev/null || { echo "python3 is required" >&2; exit 1; }

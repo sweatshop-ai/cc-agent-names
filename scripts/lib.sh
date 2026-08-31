@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared helpers for claude-agent-names.
+# Shared helpers for cc-agent-names.
 
 # Where Claude Code keeps its config. Honour CLAUDE_CONFIG_DIR like the CLI does.
 cfg_dir() { printf '%s' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"; }
