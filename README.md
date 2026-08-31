@@ -1,4 +1,4 @@
-# claude-agent-names
+# cc-agent-names
 
 Give every Claude Code session a human first name, so the sessions you run in
 parallel become people you can talk about.
@@ -67,7 +67,7 @@ Preferences live in `~/.claude/agent-names/projects.json`.
 As a plugin:
 
 ```
-/plugin marketplace add thinkingtoo/claude-agent-names
+/plugin marketplace add thinkingtoo/cc-agent-names
 /plugin install agent-names@thinkingtoo
 ```
 
@@ -78,8 +78,8 @@ or your shell rc, because a plugin cannot — see
 Or from a checkout, which also wires the statusline for you:
 
 ```bash
-git clone https://github.com/thinkingtoo/claude-agent-names.git
-cd claude-agent-names
+git clone https://github.com/thinkingtoo/cc-agent-names.git
+cd cc-agent-names
 ./install.sh
 ```
 
@@ -238,7 +238,7 @@ Windows; the optional shell wrapper needs bash or zsh, and warns rather than
 going quiet if it is sourced from anything else.
 
 Tested on Linux, under bash 5.2 and zsh 5.9. macOS is not yet verified end to
-end — [#10](https://github.com/thinkingtoo/claude-agent-names/issues/10) tracks
+end — [#10](https://github.com/thinkingtoo/cc-agent-names/issues/10) tracks
 that.
 
 ## License

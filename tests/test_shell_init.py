@@ -89,7 +89,7 @@ with tempfile.TemporaryDirectory() as tmp:
     if shutil.which("dash"):
         r = source_and_run("dash", "claude", bindir, cfg)
         check("dash: degrades with a warning, not a substitution error",
-              "Bad substitution" not in r.stderr and "claude-agent-names:" in r.stderr,
+              "Bad substitution" not in r.stderr and "cc-agent-names:" in r.stderr,
               repr(r.stderr))
         check("dash: claude still starts", "NAME=" in r.stdout,
               repr(r.stdout) + repr(r.stderr))

@@ -1,4 +1,4 @@
-# claude-agent-names -- give each new session a human name.
+# cc-agent-names -- give each new session a human name.
 #
 # Source this from your shell rc. It wraps `claude` so a name is chosen BEFORE
 # the process starts, via CLAUDE_CODE_SESSION_NAME. That timing is the whole
@@ -31,7 +31,7 @@ fi
 # no hint as to why. Say it once, and leave `claude` untouched, so the command
 # behaves exactly as it would without this file.
 if [ -z "${CLAUDE_AGENT_NAMES_ROOT:-}" ]; then
-    printf '%s\n' "claude-agent-names: could not locate the plugin from this shell; sessions will not be named. Supported: bash, zsh." >&2
+    printf '%s\n' "cc-agent-names: could not locate the plugin from this shell; sessions will not be named. Supported: bash, zsh." >&2
     return 0 2>/dev/null || exit 0
 fi
 

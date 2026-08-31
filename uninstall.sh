@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Remove claude-agent-names: unregister the naming hook, unwire the shell rc if
+# Remove cc-agent-names: unregister the naming hook, unwire the shell rc if
 # it was wired, and restore your statusline.
 set -euo pipefail
 
@@ -7,8 +7,8 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 SETTINGS="$CFG/settings.json"
 STATE="$CFG/agent-names"
-MARK_BEGIN="# >>> claude-agent-names >>>"
-MARK_END="# <<< claude-agent-names <<<"
+MARK_BEGIN="# >>> cc-agent-names >>>"
+MARK_END="# <<< cc-agent-names <<<"
 
 # A scoped CLAUDE_CONFIG_DIR means this is not the real user config -- a test
 # install, a second profile, a container. Editing $HOME/.bashrc anyway would

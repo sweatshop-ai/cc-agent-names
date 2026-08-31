@@ -4,7 +4,7 @@
 A cross-session message arrives wrapped as
 
     <cross-session-message from="uds:/run/user/1000/cc-socks/1075452.sock"
-                           from-name="claude-agent-names-de">
+                           from-name="cc-agent-names-de">
 
 The `from-name` can be stale: Claude Code fixes a session's name in memory at
 startup, so a session named after that -- by our SessionStart hook -- keeps

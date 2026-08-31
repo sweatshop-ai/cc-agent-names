@@ -14,7 +14,7 @@
       "category": "productivity",
       "tags": ["sessions", "multi-agent", "naming", "collaboration"],
       "license": "MIT",
-      "homepage": "https://github.com/thinkingtoo/claude-agent-names",
+      "homepage": "https://github.com/thinkingtoo/cc-agent-names",
       "author": {
         "name": "Thierry De Marre",
         "url": "https://github.com/thinkingtoo"
