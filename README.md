@@ -4,8 +4,19 @@ Give every Claude Code session a human first name, so the sessions you run in
 parallel become people you can talk about.
 
 ```
+Tomas
+```
+
+That is the whole statusline on a fresh install. If you already have one, the
+name is prefixed to it and the rest is yours, untouched:
+
+```
 Tomas │ Model: Opus 5 | Ctx: 70.4k | ⎇ master | (+1,-0)
 ```
+
+Everything after the `│` in that second example comes from
+[ccstatusline](https://github.com/sirmalloc/ccstatusline), which is a separate
+tool. This plugin renders the name and nothing else.
 
 Instead of `webapp-bc`, `backend-75` and `projects-16`, you get Tomas, Yuki and
 Amir — and *"check that with Yuki"* means something precise, because `Yuki` is
