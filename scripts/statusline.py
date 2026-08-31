@@ -255,6 +255,13 @@ def main():
     name = session_name(data)
     badge = os.environ.get("AGENT_NAME_BADGE", "")
     label = f"{badge} {name}".strip() if name else ""
+    # The name is the one thing on this line that is an identity rather than a
+    # reading, so it should not be the dimmest thing on it. Bold, and bright
+    # white unless told otherwise -- next to ccstatusline's yellows and cyans a
+    # plain-weight grey name loses every time, which is backwards.
+    if label:
+        colour = os.environ.get("AGENT_NAME_COLOR", "1;97")
+        label = f"\033[{colour}m{label}\033[0m" if colour != "off" else label
 
     if not label:
         print(body)
