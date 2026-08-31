@@ -155,18 +155,34 @@ Cyprien
 Oceane
 Bastien
 Maelys
+Fabien
+Amandine
+Gaspard
+Sidonie
+Lucien
+Delphine
+Aurelien
+Clemence
+# blank lines and # comments are skipped, so group them however you like
 EOF
 ```
 
-Your next session is one of those eight, picked at random from the ones no live
-session is holding. Use your team's real names, characters from something you
-like, or a short list if you want the same few names to come round again.
+Your next session is one of those, picked at random from the ones no live
+session is holding.
+
+**Make the list long.** Longer than you think: comfortably more names than the
+number of sessions you ever have open at once, and remember that headless
+`claude -p` runs take a name too, so every routine on a timer counts against the
+list while it runs. Fifty is relaxed for most people. The bundled roster is 217
+for the same reason.
+
+A pool that is too tight does not break anything, it just gets dull and then
+ugly. Names start repeating across projects until they stop meaning a particular
+session, and once every name is held the next session is `Margaux-2`, which is
+exactly the machine label the plugin exists to avoid.
+
 `CAN_NAMES` points at a different file for one session, which is handy for
 trying a list out before you commit to it.
-
-With a list this short you can run out. Open more sessions than you have names
-and the ninth is `Margaux-2` rather than a collision, so a small roster stays
-usable.
 
 There is no registry to maintain. Claude Code already writes a peer file per
 live session containing its name, so *"which names are taken"* is answered from
