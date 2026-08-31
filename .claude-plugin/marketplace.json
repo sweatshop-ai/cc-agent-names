@@ -10,7 +10,7 @@
       "name": "agent-names",
       "source": "./",
       "displayName": "Agent Names",
-      "description": "Gives each Claude Code session a human first name, so parallel sessions become people you can talk about. The name is the address ListAgents shows and SendMessage delivers to, it stays with a project across restarts, and it never overwrites your conversation title.",
+      "description": "Gives each Claude Code session a human first name, so parallel sessions become people you can talk with and about. The name is the address ListAgents shows and SendMessage delivers to, it stays with a project across restarts, and it never overwrites your conversation title.",
       "category": "productivity",
       "tags": ["sessions", "multi-agent", "naming", "collaboration"],
       "license": "MIT",

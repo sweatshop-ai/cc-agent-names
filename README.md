@@ -1,7 +1,7 @@
 # cc-agent-names
 
 Give every Claude Code session a human first name, so the sessions you run in
-parallel become people you can talk about.
+parallel become people you can talk with and about.
 
 ```
 Tomas
