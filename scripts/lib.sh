@@ -37,8 +37,7 @@ live_session_ids() {
     grep -ho '"sessionId":"[^"]*"' "$d"/*.json 2>/dev/null | cut -d'"' -f4
 }
 
-# Peer record for one session id, or nothing if it has none (headless `claude -p`
-# runs write no peer file at all -- that is how we skip naming them).
+# Peer record for one session id, or nothing if it has none.
 peer_record() {
     local sid=$1 d; d="$(cfg_dir)/sessions"
     [[ -d $d && -n $sid ]] || return 1
