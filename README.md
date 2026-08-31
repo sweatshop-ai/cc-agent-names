@@ -170,16 +170,25 @@ EOF
 Your next session is one of those, picked at random from the ones no live
 session is holding.
 
-**Make the list long.** Longer than you think: comfortably more names than the
-number of sessions you ever have open at once, and remember that headless
-`claude -p` runs take a name too, so every routine on a timer counts against the
-list while it runs. Fifty is relaxed for most people. The bundled roster is 217
-for the same reason.
+**Make the list long.** Longer than you think, and the number to size against
+is not the one most people reach for.
 
-A pool that is too tight does not break anything, it just gets dull and then
-ugly. Names start repeating across projects until they stop meaning a particular
-session, and once every name is held the next session is `Margaux-2`, which is
-exactly the machine label the plugin exists to avoid.
+Sessions open at once is the obvious floor, and headless `claude -p` runs count
+against it, so every routine on a timer holds a name while it runs. But the
+number that actually binds is **how many projects you work in**, because a name
+is remembered per project and a name another project has claimed is skipped when
+a new project picks. That memory never expires on its own: a repo you touched
+once a year ago still owns its name. Prune `projects.json` if you want those
+back.
+
+So: more names than projects you will accumulate, with room on top for the
+sessions and routines running at any moment. Fifty is relaxed for most people.
+The bundled roster is 217 for this reason.
+
+A tight pool does not break anything, it just erodes the thing you installed
+this for. New projects start borrowing names other projects own, so a name stops
+identifying one place. Then, once every name is held, the next session is
+`Margaux-2`, which is the machine label all over again.
 
 `CAN_NAMES` points at a different file for one session, which is handy for
 trying a list out before you commit to it.
