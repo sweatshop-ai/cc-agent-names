@@ -19,7 +19,7 @@ Everything after the `│` in that second example comes from
 tool. This plugin renders the name and nothing else.
 
 Instead of `webapp-bc`, `backend-75` and `projects-16`, you get Tomas, Yuki and
-Amir — and *"check that with Yuki"* means something precise, because `Yuki` is
+Amir. *"Check that with Yuki"* then means something precise, because `Yuki` is
 the literal address `SendMessage` delivers to.
 
 **And it is a name you can type.** Claude Code lets you `@`-mention another live
@@ -39,7 +39,7 @@ it finds Yuki and asks.
 ![Four named sessions coordinating](docs/agents-talking.gif)
 
 Four sessions on one repo. Nadia is coordinating; Yuki, Tomas and Amir each own
-one file. Nobody is addressed by a machine name — Nadia sends to *Tomas* and to
+one file. Nobody is addressed by a machine name. Nadia sends to *Tomas* and to
 *Amir*, and their replies arrive stamped with the sender's name.
 
 <details>
@@ -47,8 +47,8 @@ one file. Nobody is addressed by a machine name — Nadia sends to *Tomas* and t
 
 ![Nadia dispatching work to Tomas and Amir](docs/nadia-dispatch.png)
 
-`"Go ahead, hand grid to Amir" → sent to Tomas` — the lead session addressing a
-peer by name, and the peer receiving it as `Message from @Nadia`.
+`"Go ahead, hand grid to Amir" → sent to Tomas`. The lead session addresses a
+peer by name, and the peer receives it as `Message from @Nadia`.
 
 </details>
 
@@ -65,7 +65,7 @@ You want both: the tab should say *"Bootable USB stick for Ubuntu Studio"*,
 while the session is *Tomas*.
 
 That rules out every built-in route. `claude -n Tomas`, `/rename Tomas`, and a
-`UserPromptSubmit` hook returning `sessionTitle` all set the name — and all
+`UserPromptSubmit` hook returning `sessionTitle` all set the name, and all
 overwrite the title with it, so your tabs stop telling you what you're working
 on. This writes the name straight into the session's peer file instead, which
 is the record `ListAgents` reads and `SendMessage` resolves, and leaves the
@@ -99,7 +99,7 @@ As a plugin:
 ```
 
 That gives you the naming hook and the skill. It does not touch your statusline
-or your shell rc, because a plugin cannot — see
+or your shell rc, because a plugin cannot. See
 [using it with your own statusline](#using-it-with-your-own-statusline).
 
 Or from a checkout, which also wires the statusline for you:
@@ -126,23 +126,53 @@ NO_HOOK=1         ./install.sh   # skip the hook (nothing will name sessions)
 leaving your rc byte-identical.
 
 **Your shell rc is not touched by default.** The hook names sessions wherever
-Claude Code runs — terminal, IDE extensions, the desktop app, the web — so
+Claude Code runs (terminal, IDE extensions, the desktop app, the web), so
 there is nothing a shell wrapper needs to do. See
 [the one thing it buys](#what-the-shell-wrapper-buys) if you want it anyway.
 
 ## How names are handed out
 
-Names come from `data/names.txt` — 212 short, phonetically distinct first names
+Names come from `data/names.txt`: 217 short, phonetically distinct first names
 from a wide spread of languages, picked so "Yuki" is never misheard as "Yuri".
+That is far more than anyone runs at once, so a name is effectively never
+reused while its session is alive.
+
+**The pool is yours to replace.** Write your own list, one name per line, to
+`~/.claude/agent-names/names.txt` and it wins over the bundled one. Upgrades
+never touch that file, so a roster you have customised survives them. Delete a
+name from the list to retire it: a project that had remembered it picks a new
+one instead of resurrecting it.
+
+Say you want French names only:
+
+```bash
+cat > ~/.claude/agent-names/names.txt <<'EOF'
+Margaux
+Thibault
+Solene
+Anouk
+Cyprien
+Oceane
+Bastien
+Maelys
+EOF
+```
+
+Your next session is one of those eight, picked at random from the ones no live
+session is holding. Use your team's real names, characters from something you
+like, or a short list if you want the same few names to come round again.
+`CAN_NAMES` points at a different file for one session, which is handy for
+trying a list out before you commit to it.
+
+With a list this short you can run out. Open more sessions than you have names
+and the ninth is `Margaux-2` rather than a collision, so a small roster stays
+usable.
 
 There is no registry to maintain. Claude Code already writes a peer file per
 live session containing its name, so *"which names are taken"* is answered from
 the system's own state: nothing to drift, nothing to clean up, and a crashed
 session frees its name the moment its peer file disappears. A short-lived
 reservation covers the gap between choosing a name and Claude registering it.
-
-Run more sessions than you have names and you get `Yuki-2` rather than a
-collision.
 
 ## Known limits
 
@@ -158,7 +188,7 @@ paper over the rest:
 - The name is injected into the session's context at startup, so it signs its
   messages *"Yuki here"* even when the envelope disagrees.
 - `scripts/whois.py <from-address>` resolves any peer's real name from the
-  address on its message — an exact lookup, since every session records its
+  address on its message. The lookup is exact, since every session records its
   messaging socket in its peer file next to its current name. The bundled skill
   tells sessions to use it.
 
@@ -166,7 +196,7 @@ paper over the rest:
 **What the shell wrapper buys.** Setting `CLAUDE_CODE_SESSION_NAME` before
 Claude starts is in time, so those envelopes read `Yuki` too. That is the only
 difference. It costs a line in your shell rc, only covers sessions launched
-from that shell, and does not work on Windows — which is why it is opt-in:
+from that shell, and does not work on Windows. That is why it is opt-in:
 
 ```bash
 SHELL_RC=1 ./install.sh
@@ -205,12 +235,12 @@ that node spends over a second parsing before drawing anything:
 | vendored copy via node | 3.3s |
 | native fast renderer | **0.18s** |
 
-The `npx` number is a misconfiguration, not ccstatusline's real cost — `npx -y`
+The `npx` number is a misconfiguration, not ccstatusline's real cost. `npx -y`
 re-resolves the package on every render. Against a fair baseline it is **18×**.
 
 The fast renderer reproduces your ccstatusline config **byte-for-byte**, or it
 refuses. Powerline mode, extra rows, an unknown widget, a colour it hasn't
-confirmed — any of those and it silently runs the real ccstatusline instead.
+confirmed. Any of those and it silently runs the real ccstatusline instead.
 Supported: `model`, `context-length`, `git-branch`, `git-changes`, `separator`.
 
 This part is incidental to naming and will probably move to its own project.
@@ -228,7 +258,7 @@ Everything user-editable lives in `~/.claude/agent-names/`:
 | `reservations.json` | Machine-managed; safe to delete. |
 
 Set `AGENT_NAME_BADGE` to put a prefix before the name (e.g. an emoji). Empty by
-default — the same icon on every session adds nothing.
+default, because the same icon on every session adds nothing.
 
 ## Sessions this does not name
 
@@ -239,7 +269,7 @@ more than a first name would. Headless `claude -p` runs have no peer file at all
 conversational, and their auto label is worse than a name: Claude Code derives it
 from the opening prompt and never revises it, so a job that starts on one subject
 and spends its life on another answers to the wrong thing. Naming them needs a
-second hook, because the relabel lands about two minutes after start — long after
+second hook, because the relabel lands about two minutes after start, long after
 `SessionStart` has finished. So the plugin also runs on `UserPromptSubmit`, where
 the write is idempotent and heals the label the moment it appears. A job carries
 no `nameSource`, so "already ours" is decided by membership of the roster.
@@ -265,7 +295,7 @@ Windows; the optional shell wrapper needs bash or zsh, and warns rather than
 going quiet if it is sourced from anything else.
 
 Tested on Linux, under bash 5.2 and zsh 5.9. macOS is not yet verified end to
-end — [#1](https://github.com/thinkingtoo/cc-agent-names/issues/1) tracks
+end. [#1](https://github.com/thinkingtoo/cc-agent-names/issues/1) tracks
 that.
 
 ## License

@@ -11,10 +11,10 @@ session on its first prompt.
 `sessionTitle`, and it sets the conversation title *as well as* the peer name.
 So your tab stops showing the topic ("USB stick bootable Ubuntu Studio setup")
 and shows the agent's name instead ("Jonas"). For most people that is a bad
-trade — which is why this is not the default.
+trade, which is why this is not the default.
 
 **When it is still worth it:** hook mode names *every* interactive session,
-including ones you didn't launch from your shell — started by an IDE, by a
+including ones you didn't launch from your shell: started by an IDE, by a
 supervisor process, or by another tool. The shell wrapper cannot reach those.
 
 To use it, register the hooks in `~/.claude/settings.json` yourself:
