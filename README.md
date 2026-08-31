@@ -170,25 +170,22 @@ EOF
 Your next session is one of those, picked at random from the ones no live
 session is holding.
 
-**Make the list long.** Longer than you think, and the number to size against
-is not the one most people reach for.
+**Make the list long: more names than the repos you work in, plus a few.** Fifty
+is comfortable for most people. The bundled roster is 217.
 
-Sessions open at once is the obvious floor, and headless `claude -p` runs count
-against it, so every routine on a timer holds a name while it runs. But the
-number that actually binds is **how many projects you work in**, because a name
-is remembered per project and a name another project has claimed is skipped when
-a new project picks. That memory never expires on its own: a repo you touched
-once a year ago still owns its name. Prune `projects.json` if you want those
-back.
+Repos is the number, not sessions. A name is remembered per repo, and a name one
+repo has claimed is skipped when a new repo picks, so the pool is spent by repos
+accumulated over months rather than by sessions alive right now. Ten sessions
+across forty repos wants forty names. That memory never expires on its own: a
+repo you touched once a year ago still owns its name. Prune `projects.json` to
+get those back.
 
-So: more names than projects you will accumulate, with room on top for the
-sessions and routines running at any moment. Fifty is relaxed for most people.
-The bundled roster is 217 for this reason.
+Add a few on top for headless `claude -p` runs, which take a name like anything
+else, so every routine on a timer holds one while it runs.
 
-A tight pool does not break anything, it just erodes the thing you installed
-this for. New projects start borrowing names other projects own, so a name stops
-identifying one place. Then, once every name is held, the next session is
-`Margaux-2`, which is the machine label all over again.
+Too tight and the feature erodes before it breaks. New repos start borrowing
+names that belong to other repos, so a name stops identifying one place. Once
+every name is held you get `Margaux-2`, which is the machine label again.
 
 `CAN_NAMES` points at a different file for one session, which is handy for
 trying a list out before you commit to it.
