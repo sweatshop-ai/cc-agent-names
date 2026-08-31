@@ -24,8 +24,9 @@ except Exception: pass' 2>/dev/null)
 ensure_state || exit 0
 
 # Only interactive sessions get human names. Background subagents already carry
-# a descriptive task label ("Merge to main"), which beats a first name, and
-# headless `claude -p` routines have no peer record at all.
+# a descriptive task label ("Merge to main"), which beats a first name.
+# Headless `claude -p` routines are not excluded: they report themselves as
+# interactive, so this check lets them through and they do take a name.
 record=$(peer_record "$sid") || exit 0
 [[ -n $record ]] || exit 0
 grep -q '"kind":"interactive"' "$record" 2>/dev/null || exit 0

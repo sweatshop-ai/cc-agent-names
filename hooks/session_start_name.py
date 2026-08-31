@@ -166,8 +166,14 @@ def main():
     path, rec = peer_file(session_id)
     if not rec:
         return
-    # Headless runs have no peer file at all; task subagents keep their label,
-    # which says more about them than a first name would.
+    # Task subagents keep their label, which says more about them than a first
+    # name would.
+    #
+    # Headless `claude -p` runs are NOT excluded here, and cannot be: measured
+    # on 2.1.252, a headless run writes a peer file like any other and reports
+    # `kind: "interactive"`, so nothing in the record tells it apart. It takes a
+    # name for as long as it runs and gives it back on exit. Harmless against
+    # the bundled 217, but worth knowing if you cut the roster down to a few.
     if rec.get("kind") not in NAMED_KINDS:
         return
 

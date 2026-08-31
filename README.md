@@ -263,7 +263,15 @@ default, because the same icon on every session adds nothing.
 ## Sessions this does not name
 
 Task subagents are left alone deliberately: their label (`Merge to main`) says
-more than a first name would. Headless `claude -p` runs have no peer file at all.
+more than a first name would.
+
+**Headless `claude -p` runs are named**, which may surprise you if you drive
+routines from a cron job or a systemd timer. A headless run writes a peer file
+like any other and reports itself as `kind: "interactive"`, so there is nothing
+in the record to tell it apart. It holds a name while it runs and frees it on
+exit. Against the bundled 217 you will never notice. Against a hand-written
+roster of eight, two routines firing at once can push an interactive session to
+`Margaux-2`.
 
 **Background jobs (`kind: "bg"`) are named.** They are long-lived and
 conversational, and their auto label is worse than a name: Claude Code derives it
