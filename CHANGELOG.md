@@ -12,11 +12,16 @@
   of them, dictated text included -- two first names buried in a garbled voice
   prompt read as transcription noise, which is exactly when a `ListAgents` call
   is worth more than an interpretation.
-- **Why subagents keep their labels, honestly.** The old line said a task label
-  says more than a first name. True, and not the whole reason: subagents have no
-  peer file for the hook to write into, and `ListAgents` already lists them
-  under their own heading. The contrast with `bg` jobs -- which *are* named,
-  because their label goes stale -- is now stated where it belongs.
+- **One test says what gets a name.** A name is worth having when the thing
+  outlives its opening task. A subagent never does, so its label is true for its
+  whole life and a first name would only add a lookup; a session does, which is
+  why its name has to survive the drift its title follows. `bg` jobs sit on the
+  session side for the same reason. This used to be a remark at the end of a
+  section about adopting unnamed sessions, led by an argument that proves too
+  much if you take it at face value. It is now its own section, stated first,
+  with the cases as consequences -- and phrased as a test rather than a list, so
+  it also answers for a cloud session, a Remote Control session, or a worker
+  left running for a week.
 
 - **The shell wrapper picks its branch by shell, not by guesswork.** It tested
   `BASH_SOURCE` to decide whether it was in bash, which worked but leaned on
