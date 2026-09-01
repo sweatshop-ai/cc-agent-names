@@ -99,6 +99,31 @@ you cannot place looks exactly like transcription noise -- two lowercase first
 names sitting between a garbled word and a hallucinated subtitle credit read as
 more of the same. `ListAgents` costs one call and settles it.
 
+## What gets a name
+
+One test decides it:
+
+**A name is worth having when the thing outlives its opening task.**
+
+A task subagent never does. It is born with a task, it returns when that task is
+done, and its label is true from beginning to end -- identity and task are the
+same fact, so a name adds a lookup and nothing else. Give a subagent a label that
+says what it does. That is its name, and it is the better one. (It also has no
+peer file, so the hook could not name it even if this were wrong.)
+
+A session does. It opens on "prep tomorrow's call" and spends its life writing a
+report, fixing a site, and dispatching two peers. Any label from its first prompt
+is now false, which is why the name has to survive the drift: it is what you type
+into `SendMessage`, and what "Oskar wrote this" still means next week. Background
+jobs (`kind: "bg"`) are named for the same reason -- their label comes from the
+opening prompt and is never revised.
+
+So the shorthand "tasks keep labels, sessions get names" holds today. Prefer the
+test to the shorthand anyway, because the test answers for things the shorthand
+has never met -- a cloud session, a Remote Control session, a worker somebody
+leaves running for a week. Ask whether its first task will still describe it an
+hour from now.
+
 ## Messaging a peer
 
 Names are addresses: `SendMessage {to: "Yuki", ...}`. If two rows share a name,
@@ -152,22 +177,6 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/adopt_all.py"
 ```
 
 Names set by hand with `/rename` (`nameSource: "user"`) are never overwritten.
-
-Subagents keep the label you gave them, for two reasons. The mechanical one:
-they have no peer file, so there is nothing for the hook to write a name into.
-The one that matters: `respace-wp` tells you which of your two subagents that
-is, and `Yuki` would not. A subagent is one task, its label is that task, and
-`ListAgents` files it under its own heading anyway -- so a first name would cost
-you the only useful thing the label carries and buy back nothing.
-
-Give a subagent a label that says what it does. That is its name, and it is a
-better one.
-
-Background jobs (`kind: "bg"`) are the opposite case, and the hook does name
-them. Their label is derived from the opening prompt and never revised, so a job
-that starts on one subject and spends its life on another keeps answering to the
-wrong thing. The line is not subagent against session. It is whether the thing
-outlives one task, and whether its label stays true.
 
 ## Names stay with a project
 
