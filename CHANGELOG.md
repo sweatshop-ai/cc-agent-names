@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **The skill says which worker a job wants.** It covered naming and messaging
+  sessions and said nothing about subagents, so a session with idle named peers
+  could reasonably launch its own workers instead. A new *Peers or subagents*
+  section puts the two `ListAgents` lists side by side, says when each is right,
+  and makes the rule explicit: if the user names sessions, use those sessions.
+- **The skill fires on a name it does not recognise.** Its triggers assumed you
+  already knew you needed a peer's name. A name in the user's message is now one
+  of them, dictated text included -- two first names buried in a garbled voice
+  prompt read as transcription noise, which is exactly when a `ListAgents` call
+  is worth more than an interpretation.
+- **Why subagents keep their labels, honestly.** The old line said a task label
+  says more than a first name. True, and not the whole reason: subagents have no
+  peer file for the hook to write into, and `ListAgents` already lists them
+  under their own heading. The contrast with `bg` jobs -- which *are* named,
+  because their label goes stale -- is now stated where it belongs.
+
 - **The shell wrapper picks its branch by shell, not by guesswork.** It tested
   `BASH_SOURCE` to decide whether it was in bash, which worked but leaned on
   zsh happening to return empty for an unset bash array. It now reads
