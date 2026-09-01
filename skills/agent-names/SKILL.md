@@ -1,6 +1,6 @@
 ---
 name: agent-names
-description: Use when you need to know which Claude session you are, who else is running and on what, or how sessions are named - triggered by "who am I", "what's my name", "who's running", "who is working on X", "list the agents", when you are about to message a peer and need its name, or when a peer messages you and its name looks machine-generated.
+description: Use when you need to know which Claude session you are, who else is running and on what, or how sessions are named - triggered by "who am I", "what's my name", "who's running", "who is working on X", "list the agents", when you are about to message a peer and need its name, when a peer messages you and its name looks machine-generated, or when the user says a name you do not recognise - including a name that reaches you mangled inside dictated text.
 ---
 
 # Agent names
@@ -60,6 +60,45 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roster.py"
 Prints `name · status · working directory`, named interactive sessions first,
 with your own row marked. Answer in names, never session ids.
 
+## Peers or subagents
+
+`ListAgents` prints two lists, and they are not two views of one thing:
+
+```
+Teammates (2):
+  respace-wp [f2734e]  ·  general-purpose  ·  running  ·  started 13m ago
+
+Peer sessions (9):
+  Roxana [4e6919]  ·  interactive  ·  idle  ·  tmux 17:@17.%69
+```
+
+**Teammates** are subagents you launched with the `Agent` tool. They run inside
+your session, you chose their label, they report back to you, and they end when
+their task ends.
+
+**Peer sessions** are other Claude Code sessions. Their own context window,
+their own pane on screen, often their own user watching. They outlive your task.
+
+Launch a subagent when the job is fully specified, needs nobody's input, and the
+answer comes back to you: a wide search, a report to draft, a batch of fixes
+across one file tree. It costs less than a session and it tells you when it is
+done.
+
+Use a peer when the user has one running, when the work needs its own context
+window over hours, or when the user wants to watch it happen in a pane.
+
+**If the user names sessions, use those sessions.** "work with Roxana and Amaia"
+decides the mechanism; it is not a suggestion about staffing. Those sessions
+already exist, they are already in the right repo, and the user is watching
+those panes. Launching subagents instead leaves two idle sessions and two
+windows where nothing arrives.
+
+A name in the user's message is worth a lookup before it is worth an
+interpretation. Dictated prompts arrive with mangled words in them, so a name
+you cannot place looks exactly like transcription noise -- two lowercase first
+names sitting between a garbled word and a hallucinated subtitle credit read as
+more of the same. `ListAgents` costs one call and settles it.
+
 ## Messaging a peer
 
 Names are addresses: `SendMessage {to: "Yuki", ...}`. If two rows share a name,
@@ -114,8 +153,21 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/adopt_all.py"
 
 Names set by hand with `/rename` (`nameSource: "user"`) are never overwritten.
 
-Background subagents are left alone deliberately, because their task label
-(`Merge to main`) says more than a first name would.
+Subagents keep the label you gave them, for two reasons. The mechanical one:
+they have no peer file, so there is nothing for the hook to write a name into.
+The one that matters: `respace-wp` tells you which of your two subagents that
+is, and `Yuki` would not. A subagent is one task, its label is that task, and
+`ListAgents` files it under its own heading anyway -- so a first name would cost
+you the only useful thing the label carries and buy back nothing.
+
+Give a subagent a label that says what it does. That is its name, and it is a
+better one.
+
+Background jobs (`kind: "bg"`) are the opposite case, and the hook does name
+them. Their label is derived from the opening prompt and never revised, so a job
+that starts on one subject and spends its life on another keeps answering to the
+wrong thing. The line is not subagent against session. It is whether the thing
+outlives one task, and whether its label stays true.
 
 ## Names stay with a project
 
