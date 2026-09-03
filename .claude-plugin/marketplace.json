@@ -1,9 +1,9 @@
 {
-  "name": "thinkingtoo",
-  "description": "Claude Code plugins from ThinkingToo.",
+  "name": "sweatshop-ai",
+  "description": "Claude Code plugins from sweatshop.ai.",
   "owner": {
-    "name": "ThinkingToo",
-    "url": "https://github.com/thinkingtoo"
+    "name": "sweatshop.ai",
+    "url": "https://github.com/sweatshop-ai"
   },
   "plugins": [
     {
@@ -14,10 +14,10 @@
       "category": "productivity",
       "tags": ["sessions", "multi-agent", "naming", "collaboration"],
       "license": "MIT",
-      "homepage": "https://github.com/thinkingtoo/cc-agent-names",
+      "homepage": "https://github.com/sweatshop-ai/cc-agent-names",
       "author": {
         "name": "Thierry De Marre",
-        "url": "https://github.com/thinkingtoo"
+        "url": "https://github.com/sweatshop-ai"
       }
     }
   ]

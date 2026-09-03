@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **The plugin lives at `sweatshop-ai/cc-agent-names` now.** The repo moved out
+  of the `thinkingtoo` org, so the marketplace is named `sweatshop-ai` and the
+  install line is `/plugin install agent-names@sweatshop-ai`. GitHub redirects
+  the old URL, so existing clones and `git pull` keep working untouched. Anyone
+  who added the marketplace under the old name has to add it again -- a
+  marketplace name is an identifier, not a link, and nothing redirects it.
+
 - **The shell wrapper picks its branch by shell, not by guesswork.** It tested
   `BASH_SOURCE` to decide whether it was in bash, which worked but leaned on
   zsh happening to return empty for an unset bash array. It now reads

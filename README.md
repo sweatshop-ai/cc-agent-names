@@ -94,8 +94,8 @@ Preferences live in `~/.claude/agent-names/projects.json`.
 As a plugin:
 
 ```
-/plugin marketplace add thinkingtoo/cc-agent-names
-/plugin install agent-names@thinkingtoo
+/plugin marketplace add sweatshop-ai/cc-agent-names
+/plugin install agent-names@sweatshop-ai
 ```
 
 That gives you the naming hook and the skill. It does not touch your statusline
@@ -105,7 +105,7 @@ or your shell rc, because a plugin cannot. See
 Or from a checkout, which also wires the statusline for you:
 
 ```bash
-git clone https://github.com/thinkingtoo/cc-agent-names.git
+git clone https://github.com/sweatshop-ai/cc-agent-names.git
 cd cc-agent-names
 ./install.sh
 ```
@@ -325,7 +325,7 @@ Windows; the optional shell wrapper needs bash or zsh, and warns rather than
 going quiet if it is sourced from anything else.
 
 Tested on Linux, under bash 5.2 and zsh 5.9. macOS is not yet verified end to
-end. [#1](https://github.com/thinkingtoo/cc-agent-names/issues/1) tracks
+end. [#1](https://github.com/sweatshop-ai/cc-agent-names/issues/1) tracks
 that.
 
 ## License
