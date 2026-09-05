@@ -1,6 +1,6 @@
 ---
 name: agent-names
-description: Use when you need to know which Claude session you are, who else is running and on what, or how sessions are named - triggered by "who am I", "what's my name", "who's running", "who is working on X", "list the agents", when you are about to message a peer and need its name, when a peer messages you and its name looks machine-generated, or when the user says a name you do not recognise - including a name that reaches you mangled inside dictated text.
+description: Use when you need to know which Claude session you are, who else is running and on what, or how sessions are named - triggered by "who am I", "what's my name", "who's running", "who is working on X", "list the agents", when you are about to message a peer and need its name, when a peer messages you and its name looks machine-generated, or when the user says a name you do not recognise, dictated text included.
 ---
 
 # Agent names
@@ -62,67 +62,61 @@ with your own row marked. Answer in names, never session ids.
 
 ## Peers or subagents
 
-`ListAgents` prints two lists, and they are not two views of one thing:
+`ListAgents` prints two lists, and they hold different things:
 
 ```
 Teammates (2):
   respace-wp [f2734e]  ·  general-purpose  ·  running  ·  started 13m ago
+  ...
 
 Peer sessions (9):
   Roxana [4e6919]  ·  interactive  ·  idle  ·  tmux 17:@17.%69
+  ...
 ```
 
 **Teammates** are subagents you launched with the `Agent` tool. They run inside
-your session, you chose their label, they report back to you, and they end when
-their task ends.
+your session, you chose their label, and they report back to you.
 
-**Peer sessions** are other Claude Code sessions. Their own context window,
-their own pane on screen, often their own user watching. They outlive your task.
+**Peer sessions** are other Claude Code sessions. Each has its own context
+window and its own pane, and they outlive your task.
 
 Launch a subagent when the job is fully specified, needs nobody's input, and the
-answer comes back to you: a wide search, a report to draft, a batch of fixes
-across one file tree. It costs less than a session and it tells you when it is
-done.
+answer comes back to you: a wide search, or a batch of fixes across one file
+tree. It costs less than a session and it tells you when it is done.
 
-Use a peer when the user has one running, when the work needs its own context
-window over hours, or when the user wants to watch it happen in a pane.
+Use a peer when the user already has one running, or when the work needs its own
+context window over hours with somebody watching the pane.
 
 **If the user names sessions, use those sessions.** "work with Roxana and Amaia"
-decides the mechanism; it is not a suggestion about staffing. Those sessions
-already exist, they are already in the right repo, and the user is watching
-those panes. Launching subagents instead leaves two idle sessions and two
-windows where nothing arrives.
+decides the mechanism. Those sessions already exist, they are already in the
+right repo, and the user is watching those panes. Launching subagents instead
+leaves two idle sessions and two windows where nothing arrives.
 
-A name in the user's message is worth a lookup before it is worth an
-interpretation. Dictated prompts arrive with mangled words in them, so a name
-you cannot place looks exactly like transcription noise -- two lowercase first
-names sitting between a garbled word and a hallucinated subtitle credit read as
-more of the same. `ListAgents` costs one call and settles it.
+Look a name up before you interpret it. Dictated prompts arrive with mangled
+words in them, so a name you cannot place reads as more transcription noise --
+two lowercase first names sitting between a garbled word and a hallucinated
+subtitle credit. `ListAgents` costs one call and settles it.
 
 ## What gets a name
 
-One test decides it:
-
 **A name is worth having when the thing outlives its opening task.**
 
-A task subagent never does. It is born with a task, it returns when that task is
-done, and its label is true from beginning to end -- identity and task are the
-same fact, so a name adds a lookup and nothing else. Give a subagent a label that
-says what it does. That is its name, and it is the better one. (It also has no
-peer file, so the hook could not name it even if this were wrong.)
+A task subagent does not. It is born with a task and returns when that task is
+done, so its label is true from beginning to end and a first name would only add
+a lookup. Give a subagent a label that says what it does. The hook skips it on
+`kind`, not for want of a record: a subagent writes a peer file like anything
+else, and `NAMED_KINDS` is `("interactive", "bg")`.
 
 A session does. It opens on "prep tomorrow's call" and spends its life writing a
-report, fixing a site, and dispatching two peers. Any label from its first prompt
-is now false, which is why the name has to survive the drift: it is what you type
-into `SendMessage`, and what "Oskar wrote this" still means next week. Background
+report and dispatching two peers. Any label from its first prompt has gone stale
+by then, so the name has to survive the drift: it is what you type into
+`SendMessage`, and what "Oskar wrote this" still means next week. Background
 jobs (`kind: "bg"`) are named for the same reason -- their label comes from the
 opening prompt and is never revised.
 
-So the shorthand "tasks keep labels, sessions get names" holds today. Prefer the
-test to the shorthand anyway, because the test answers for things the shorthand
-has never met -- a cloud session, a Remote Control session, a worker somebody
-leaves running for a week. Ask whether its first task will still describe it an
-hour from now.
+The shorthand "tasks keep labels, sessions get names" holds today. Prefer the
+test anyway, because it answers for things the shorthand has never met: a cloud
+session, or a worker somebody leaves running for a week.
 
 ## Messaging a peer
 

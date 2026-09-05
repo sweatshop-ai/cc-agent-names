@@ -10,18 +10,15 @@
 - **The skill fires on a name it does not recognise.** Its triggers assumed you
   already knew you needed a peer's name. A name in the user's message is now one
   of them, dictated text included -- two first names buried in a garbled voice
-  prompt read as transcription noise, which is exactly when a `ListAgents` call
-  is worth more than an interpretation.
+  prompt read as transcription noise, which is when a `ListAgents` call is worth
+  more than an interpretation.
 - **One test says what gets a name.** A name is worth having when the thing
   outlives its opening task. A subagent never does, so its label is true for its
   whole life and a first name would only add a lookup; a session does, which is
   why its name has to survive the drift its title follows. `bg` jobs sit on the
-  session side for the same reason. This used to be a remark at the end of a
-  section about adopting unnamed sessions, led by an argument that proves too
-  much if you take it at face value. It is now its own section, stated first,
-  with the cases as consequences -- and phrased as a test rather than a list, so
-  it also answers for a cloud session, a Remote Control session, or a worker
-  left running for a week.
+  session side for the same reason. The skill and the README used to give the
+  weaker reason -- that a task label says more than a first name -- and the
+  README's version of it was wrong for `bg` jobs, which this plugin does name.
 
 - **The shell wrapper picks its branch by shell, not by guesswork.** It tested
   `BASH_SOURCE` to decide whether it was in bash, which worked but leaned on
