@@ -1,6 +1,6 @@
 ---
 name: agent-names
-description: Use when you need to know which Claude session you are, who else is running and on what, or how sessions are named - triggered by "who am I", "what's my name", "who's running", "who is working on X", "list the agents", when you are about to message a peer and need its name, or when a peer messages you and its name looks machine-generated.
+description: Use when you need to know which Claude session you are, who else is running and on what, or how sessions are named - triggered by "who am I", "what's my name", "who's running", "who is working on X", "list the agents", when you are about to message a peer and need its name, when a peer messages you and its name looks machine-generated, or when the user says a name you do not recognise, dictated text included.
 ---
 
 # Agent names
@@ -60,6 +60,64 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/roster.py"
 Prints `name · status · working directory`, named interactive sessions first,
 with your own row marked. Answer in names, never session ids.
 
+## Peers or subagents
+
+`ListAgents` prints two lists, and they hold different things:
+
+```
+Teammates (2):
+  respace-wp [f2734e]  ·  general-purpose  ·  running  ·  started 13m ago
+  ...
+
+Peer sessions (9):
+  Roxana [4e6919]  ·  interactive  ·  idle  ·  tmux 17:@17.%69
+  ...
+```
+
+**Teammates** are subagents you launched with the `Agent` tool. They run inside
+your session, you chose their label, and they report back to you.
+
+**Peer sessions** are other Claude Code sessions. Each has its own context
+window and its own pane, and they outlive your task.
+
+Launch a subagent when the job is fully specified, needs nobody's input, and the
+answer comes back to you: a wide search, or a batch of fixes across one file
+tree. It costs less than a session and it tells you when it is done.
+
+Use a peer when the user already has one running, or when the work needs its own
+context window over hours with somebody watching the pane.
+
+**If the user names sessions, use those sessions.** "work with Roxana and Amaia"
+decides the mechanism. Those sessions already exist, they are already in the
+right repo, and the user is watching those panes. Launching subagents instead
+leaves two idle sessions and two windows where nothing arrives.
+
+Look a name up before you interpret it. Dictated prompts arrive with mangled
+words in them, so a name you cannot place reads as more transcription noise --
+two lowercase first names sitting between a garbled word and a hallucinated
+subtitle credit. `ListAgents` costs one call and settles it.
+
+## What gets a name
+
+**A name is worth having when the thing outlives its opening task.**
+
+A task subagent does not. It is born with a task and returns when that task is
+done, so its label is true from beginning to end and a first name would only add
+a lookup. Give a subagent a label that says what it does. The hook skips it on
+`kind`, not for want of a record: a subagent writes a peer file like anything
+else, and `NAMED_KINDS` is `("interactive", "bg")`.
+
+A session does. It opens on "prep tomorrow's call" and spends its life writing a
+report and dispatching two peers. Any label from its first prompt has gone stale
+by then, so the name has to survive the drift: it is what you type into
+`SendMessage`, and what "Oskar wrote this" still means next week. Background
+jobs (`kind: "bg"`) are named for the same reason -- their label comes from the
+opening prompt and is never revised.
+
+The shorthand "tasks keep labels, sessions get names" holds today. Prefer the
+test anyway, because it answers for things the shorthand has never met: a cloud
+session, or a worker somebody leaves running for a week.
+
 ## Messaging a peer
 
 Names are addresses: `SendMessage {to: "Yuki", ...}`. If two rows share a name,
@@ -113,9 +171,6 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/adopt_all.py"
 ```
 
 Names set by hand with `/rename` (`nameSource: "user"`) are never overwritten.
-
-Background subagents are left alone deliberately, because their task label
-(`Merge to main`) says more than a first name would.
 
 ## Names stay with a project
 

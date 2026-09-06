@@ -284,8 +284,9 @@ default, because the same icon on every session adds nothing.
 
 ## Sessions this does not name
 
-Task subagents are left alone deliberately: their label (`Merge to main`) says
-more than a first name would.
+Task subagents are left alone deliberately: a subagent does not outlive its
+opening task, so its label (`Merge to main`) stays true for as long as it exists
+and a first name would only add a lookup.
 
 **Headless `claude -p` runs are named**, which may surprise you if you drive
 routines from a cron job or a systemd timer. A headless run writes a peer file
