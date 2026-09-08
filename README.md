@@ -89,6 +89,15 @@ Worktrees count as separate projects, since parallel branches are parallel work.
 
 Preferences live in `~/.claude/agent-names/projects.json`.
 
+A session also keeps its own name for as long as it runs, and gets it back when
+it resumes. Claude Code rewrites the peer record on its own schedule, which puts
+a machine name back and asks for the session to be named a second time; what it
+was called the first time is remembered by session id, so the answer is the same
+name rather than a new one. It outranks the project preference, since a sibling
+session may be holding that. Still never a reservation: a name a live session
+holds is off limits, so a session that has genuinely lost its name to someone
+else takes a different one.
+
 ## Install
 
 As a plugin:
@@ -277,6 +286,7 @@ Everything user-editable lives in `~/.claude/agent-names/`:
 | `names.txt` | Your own roster. Create it to override the bundled pool; upgrades never touch it. Delete a name and no project will use it again. |
 | `projects.json` | Which name each project keeps. Delete an entry to let a project pick a new one. |
 | `config.json` | `statusline` (inner command), `fast` (use the native renderer). |
+| `sessions.json` | Which name each session keeps, so it survives a relabel or a resume. Machine-managed; entries expire after a month. |
 | `reservations.json` | Machine-managed; safe to delete. |
 
 Set `AGENT_NAME_BADGE` to put a prefix before the name (e.g. an emoji). Empty by
