@@ -3,14 +3,21 @@
 
 Prints the name on stdout, or nothing if none could be chosen.
 
-There is deliberately no registry of session ids here. Claude Code already
-writes a peer file per live session containing its name, so "which names are
-taken" is answerable from the system's own state -- no bookkeeping to drift, no
-cleanup to forget, and a crashed session releases its name the moment its peer
-file disappears.
+Which names are taken is never bookkept. Claude Code already writes a peer file
+per live session containing its name, so the system's own state answers it --
+nothing to drift, nothing to clean up, and a crashed session releases its name
+the moment its peer file disappears.
 
 The one gap is the window between choosing a name and Claude writing its peer
 file. A short-lived reservation file covers exactly that window.
+
+What a session was called *is* remembered, per session id. A session can need
+naming more than once -- Claude Code rewrites the peer record on its own
+schedule, and a rewrite puts a derived name back -- and without that memory the
+second pick is a fresh roll of the dice, so a session peers already know by name
+starts answering to another one. Like project stickiness this is a preference,
+never a reservation: a remembered name is only ever handed back if no live
+session holds it.
 
 Names are sticky per project: the session you open in a repo tomorrow gets the
 name the last one had, so "Oskar wrote this" keeps meaning something across
@@ -35,6 +42,10 @@ from pathlib import Path
 # out of the next launch.
 RESERVE_TTL = 30
 
+# A session id never comes back once its session is gone for good, so the memory
+# of what it was called is only useful while a resume is still plausible.
+SESSION_TTL = 30 * 24 * 3600
+
 cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR", str(Path.home() / ".claude")))
 state = cfg / "agent-names"
 names_file = Path(os.environ.get("CAN_NAMES") or (state / "names.txt"))
@@ -42,8 +53,26 @@ if not names_file.is_file():
     names_file = Path(__file__).resolve().parent.parent / "data" / "names.txt"
 
 
-def live_names():
-    """Names currently held by running sessions, per Claude's own peer files."""
+def reservation(entry):
+    """A held name's (timestamp, session id), old format or new.
+
+    Reservations used to be a bare timestamp. One written by an older version is
+    still honoured -- it just belongs to nobody, so it holds against everyone.
+    """
+    if isinstance(entry, dict):
+        return entry.get("at") or 0, entry.get("sid") or ""
+    if isinstance(entry, (int, float)):
+        return entry, ""
+    return 0, ""
+
+
+def live_names(mine=""):
+    """Names currently held by running sessions, per Claude's own peer files.
+
+    A session's own record is skipped. Otherwise a session asking to be renamed
+    -- which is what a `collision` or a re-derived label amounts to -- would find
+    its own name in the taken set and be pushed off it by itself.
+    """
     taken = set()
     sessions = cfg / "sessions"
     if not sessions.is_dir():
@@ -54,7 +83,11 @@ def live_names():
                 data = json.load(fh)
         except (OSError, ValueError):
             continue
-        name = data.get("name") if isinstance(data, dict) else None
+        if not isinstance(data, dict):
+            continue
+        if mine and data.get("sessionId") == mine:
+            continue
+        name = data.get("name")
         if name:
             taken.add(name)
     return taken
@@ -80,7 +113,7 @@ def project_key(cwd):
     return os.path.realpath(cwd)
 
 
-def load_projects(path):
+def load_map(path):
     try:
         with path.open(encoding="utf-8") as fh:
             data = json.load(fh)
@@ -89,7 +122,7 @@ def load_projects(path):
     return data if isinstance(data, dict) else {}
 
 
-def save_projects(path, data):
+def save_map(path, data):
     tmp = path.with_suffix(".tmp")
     try:
         with tmp.open("w", encoding="utf-8") as fh:
@@ -97,6 +130,18 @@ def save_projects(path, data):
         os.replace(tmp, path)
     except OSError:
         pass
+
+
+def base_name(name):
+    """The root a suffixed name hangs off: `Anna-2` is Anna's.
+
+    Retiring Anna from names.txt has to retire Anna-2 with her, or a remembered
+    name could outlive the roster it came from.
+    """
+    root = name.rsplit("-", 1)
+    if len(root) == 2 and root[1].isdigit():
+        return root[0]
+    return name
 
 
 def load_pool():
@@ -167,13 +212,26 @@ def main():
             held = {}
         # Drop reservations whose session has had ample time to register: if the
         # name were still in use, a live peer file would say so.
-        held = {n: t for n, t in held.items() if now - t < RESERVE_TTL}
+        held = {n: e for n, e in held.items()
+                if now - reservation(e)[0] < RESERVE_TTL}
 
         projects_file = state / "projects.json"
-        projects = load_projects(projects_file)
+        projects = load_map(projects_file)
         key = project_key(os.environ.get("CAN_CWD") or os.getcwd())
 
-        taken = live_names() | set(held)
+        # What each session has been called. Pruned by age: a session id that
+        # has not been seen in a month is not coming back.
+        sid = os.environ.get("CAN_SESSION") or ""
+        sessions_file = state / "sessions.json"
+        sessions = {s: v for s, v in load_map(sessions_file).items()
+                    if isinstance(v, dict)
+                    and now - (v.get("last_used") or 0) < SESSION_TTL}
+
+        # A session's own reservation must not count against it. The statusline
+        # can adopt the same session twice inside the window, and the second pass
+        # would otherwise find the name it just chose already spoken for.
+        taken = live_names(sid) | {n for n, e in held.items()
+                                   if not sid or reservation(e)[1] != sid}
         free = [n for n in pool if n not in taken]
 
         remembered = (projects.get(key) or {}).get("name")
@@ -185,7 +243,17 @@ def main():
         # an identity of its own rather than borrowing one already in use.
         spoken_for = {(v or {}).get("name") for k, v in projects.items() if k != key}
 
-        if remembered and remembered not in taken:
+        # What this session was called the last time it was named. It outranks
+        # the project's usual name, which a sibling session may well be holding:
+        # keeping one session on one name matters more than which name a project
+        # tends to use, and peers have already been told this one.
+        mine = (sessions.get(sid) or {}).get("name") if sid else None
+        if mine and base_name(mine) not in pool:
+            mine = None
+
+        if mine and mine not in taken:
+            chosen = mine                          # this session's own name, free
+        elif remembered and remembered not in taken:
             chosen = remembered                    # this project's usual name, free
         elif free:
             fresh = [n for n in free if n not in spoken_for]
@@ -193,7 +261,7 @@ def main():
             if not remembered:
                 # First session in this project: this becomes its name.
                 projects[key] = {"name": chosen, "last_used": int(now)}
-                save_projects(projects_file, projects)
+                save_map(projects_file, projects)
         else:
             # More sessions than names. Suffix rather than collide.
             base = random.choice(pool)
@@ -204,9 +272,13 @@ def main():
 
         if remembered == chosen:
             projects[key]["last_used"] = int(now)
-            save_projects(projects_file, projects)
+            save_map(projects_file, projects)
 
-        held[chosen] = now
+        if sid:
+            sessions[sid] = {"name": chosen, "last_used": int(now)}
+            save_map(sessions_file, sessions)
+
+        held[chosen] = {"at": now, "sid": sid}
         tmp = reservations.with_suffix(".tmp")
         with tmp.open("w", encoding="utf-8") as fh:
             json.dump(held, fh)
