@@ -173,10 +173,15 @@ def adopt(path, rec):
     """
     if rec.get("nameSource") not in ("derived", "auto", "collision"):
         return ""
+    # The session's own directory and id, not this process's: the statusline
+    # renders constantly, and without them every render picks again from scratch
+    # -- which is how a session ends up answering to a different name each time.
+    env = dict(os.environ, CAN_CWD=rec.get("cwd") or os.getcwd(),
+               CAN_SESSION=rec.get("sessionId") or "")
     try:
         chosen = subprocess.run(
             [sys.executable, str(Path(__file__).resolve().parent / "pick_name.py")],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True, text=True, timeout=5, env=env,
         ).stdout.strip()
     except (OSError, subprocess.SubprocessError):
         return ""
