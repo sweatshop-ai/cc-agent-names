@@ -24,15 +24,18 @@ cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR", str(Path.home() / ".claude")))
 dry_run = "--dry-run" in sys.argv
 
 
-def pick(cwd):
+def pick(cwd, session_id=""):
     """Choose a name for a session, keyed to the directory that session is in.
 
     Not to ours: adopting a batch of sessions from one terminal must still give
     each of them the name its own project remembers, or every adopted session
     would record a preference against whatever directory this command was run
     from.
+
+    Keyed to its id too, so a session adopted here answers to the same name
+    afterwards rather than being re-picked the next time Claude Code relabels it.
     """
-    env = dict(os.environ, CAN_CWD=cwd or os.getcwd())
+    env = dict(os.environ, CAN_CWD=cwd or os.getcwd(), CAN_SESSION=session_id)
     try:
         out = subprocess.run([sys.executable, str(HERE / "pick_name.py")], env=env,
                              capture_output=True, text=True, timeout=8)
@@ -78,7 +81,7 @@ def main():
             continue
 
         old = rec.get("name") or "?"
-        new = pick(rec.get("cwd") or "")
+        new = pick(rec.get("cwd") or "", rec.get("sessionId") or "")
         if not new:
             continue
         if dry_run:

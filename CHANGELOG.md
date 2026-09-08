@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+- **A session keeps one name for its whole life.** Claude Code rewrites the peer
+  record on its own schedule, and a rewrite puts a derived name back, which made
+  the session eligible for naming a second time. Nothing tied that second pick to
+  the first, so it drew again at random and a session peers already knew by name
+  began answering to another one. Across 2206 transcripts, 10 sessions had been
+  told two or more names; one ran through four in four hours while a sibling
+  session in the same project held the name that project remembers. What a
+  session was called is now remembered by session id, ranked above project
+  stickiness, and handed back on any later pick. It stays a preference -- a name
+  a live session actually holds is still off limits.
+- **Three other paths picked from scratch too.** `adopt_all.py` passed the
+  session's directory but not its id. The statusline passed neither, so every
+  render of a machine-named record was an independent draw. A session's own
+  reservation also counted against it, which pushed it off the name it had just
+  chosen when it was adopted twice inside the 30-second window; reservations now
+  record who made them, and honour the older bare-timestamp format on the way in.
+- **A session's own peer record no longer counts against it.** A `collision` or a
+  re-derived label asks for a rename while the record still holds our name, and
+  that name being in the taken set guaranteed the session was moved off it.
+- `tests/test_naming.py` covers the five cases, driving the hook and the
+  statusline across a session's whole life rather than a single firing.
+
 - **The skill says which worker a job wants.** It covered naming and messaging
   sessions and said nothing about subagents, so a session with idle named peers
   could reasonably launch its own workers instead. A new *Peers or subagents*
