@@ -1,7 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.5.0
 
+The plugin moves to the sweatshop-ai org, and a session stops being renamed
+mid-conversation.
+
+- **The plugin lives at `sweatshop-ai/cc-agent-names` now.** The repo moved out
+  of the `thinkingtoo` org, so the marketplace is named `sweatshop-ai` and the
+  install line is `/plugin install agent-names@sweatshop-ai`. GitHub redirects
+  the old URL, so existing clones and `git pull` keep working untouched. Anyone
+  who added the marketplace under the old name has to add it again -- a
+  marketplace name is an identifier, not a link, and nothing redirects it.
 - **A session keeps one name for its whole life.** Claude Code rewrites the peer
   record on its own schedule, and a rewrite puts a derived name back, which made
   the session eligible for naming a second time. Nothing tied that second pick to
