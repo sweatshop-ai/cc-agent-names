@@ -12,9 +12,37 @@
       "displayName": "Agent Names",
       "description": "Gives each Claude Code session a human first name, so parallel sessions become people you can talk with and about. The name is the address ListAgents shows and SendMessage delivers to, it stays with a project across restarts, and it never overwrites your conversation title.",
       "category": "productivity",
-      "tags": ["sessions", "multi-agent", "naming", "collaboration"],
+      "tags": [
+        "sessions",
+        "multi-agent",
+        "naming",
+        "collaboration"
+      ],
       "license": "MIT",
       "homepage": "https://github.com/sweatshop-ai/cc-agent-names",
+      "author": {
+        "name": "Thierry De Marre",
+        "url": "https://github.com/sweatshop-ai"
+      }
+    },
+    {
+      "name": "claude-boss",
+      "source": {
+        "source": "github",
+        "repo": "sweatshop-ai/claude-boss"
+      },
+      "displayName": "Claude Boss",
+      "description": "One Claude Code session coordinates the others. It dispatches work to worker sessions, keeps its tracker on disk, escalates a blocker on a timer, and asks you exactly one question when it needs you. Six hooks keep it honest: nudged when a worker goes idle, pushed to ask rather than go quiet when something is blocked, reminded when it starts implementing instead of delegating.",
+      "category": "productivity",
+      "tags": [
+        "multi-agent",
+        "orchestration",
+        "coordination",
+        "tmux",
+        "sessions"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/sweatshop-ai/claude-boss",
       "author": {
         "name": "Thierry De Marre",
         "url": "https://github.com/sweatshop-ai"
