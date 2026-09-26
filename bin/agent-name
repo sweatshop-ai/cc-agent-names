@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Claude Code puts this directory on PATH for every session, so the boss and
+# other tools call `agent-name` by name. See scripts/agent_name.py.
+exec python3 "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/../scripts/agent_name.py" "$@"

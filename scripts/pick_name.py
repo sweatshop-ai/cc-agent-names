@@ -237,8 +237,11 @@ def main():
         # the project's usual name, which a sibling session may well be holding:
         # keeping one session on one name matters more than which name a project
         # tends to use, and peers have already been told this one.
-        mine = (sessions.get(sid) or {}).get("name") if sid else None
-        if mine and base_name(mine) not in pool:
+        entry = (sessions.get(sid) or {}) if sid else {}
+        mine = entry.get("name")
+        # A name assigned from outside (`agent-name set`) was never the roster's
+        # to retire; anything else leaves with its roster entry.
+        if mine and not entry.get("assigned") and base_name(mine) not in pool:
             mine = None
 
         if mine and mine not in taken:
@@ -266,6 +269,8 @@ def main():
 
         if sid:
             sessions[sid] = {"name": chosen, "last_used": int(now)}
+            if chosen == mine and entry.get("assigned"):
+                sessions[sid]["assigned"] = True
             save_map(sessions_file, sessions)
 
         held[chosen] = {"at": now, "sid": sid}

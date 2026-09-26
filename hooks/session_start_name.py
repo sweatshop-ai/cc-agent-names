@@ -29,6 +29,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+import agent_name  # noqa: E402
 import registry  # noqa: E402
 
 # Claude Code writes the peer file at startup; the hook can win the race.
@@ -103,7 +104,7 @@ def release(name):
         pass
 
 
-def replaceable(rec, pool):
+def replaceable(rec, pool, assigned=None):
     """True when this session's current name is Claude Code's, not a person's.
 
     Two shapes of machine name exist. An interactive session carries
@@ -114,6 +115,8 @@ def replaceable(rec, pool):
     source = rec.get("nameSource")
     if source == "user":
         return False
+    if assigned and rec.get("name") == assigned:
+        return False              # given to it by the boss or a restore, on purpose
     if source in MACHINE:
         return True
     return (rec.get("name") or "") not in pool
@@ -179,7 +182,7 @@ def main():
         return
 
     pool = roster()
-    if not replaceable(rec, pool):
+    if not replaceable(rec, pool, agent_name.assigned(session_id, CFG)):
         # Already named -- by /rename, by us on an earlier start, or by us on an
         # earlier prompt. Tell the session what it is called only at the start of
         # a session; repeating it on every prompt would be noise.
