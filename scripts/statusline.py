@@ -18,6 +18,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import registry  # noqa: E402
+
 NBSP = " "
 
 # ccstatusline's 256-colour palette. Only entries confirmed against its real
@@ -146,18 +149,10 @@ def fast_render(data):
 
 def peer_record(sid):
     """(path, record) for this session's peer file, or (None, None)."""
-    sessions = config_dir() / "sessions"
-    if not sid or not sessions.is_dir():
+    rec = registry.by_sid(sid, config_dir()) if sid else None
+    if not rec:
         return None, None
-    for path in sessions.glob("*.json"):
-        try:
-            with path.open(encoding="utf-8") as fh:
-                rec = json.load(fh)
-        except (OSError, ValueError):
-            continue
-        if isinstance(rec, dict) and rec.get("sessionId") == sid:
-            return path, rec
-    return None, None
+    return Path(rec.pop("path")), rec
 
 
 def adopt(path, rec):
