@@ -249,6 +249,19 @@ check("a name held only by a peer file whose session has exited is free again",
       life.peer_name(5001) == mine, f"was {mine!r}, became {life.peer_name(5001)!r}")
 life.close()
 
+# A resume gets a new pid, and the previous run's file can linger under the
+# same session id. The name goes to the live one.
+life = Life()
+for dead in range(1, 6):                                      # several, so glob order cannot help
+    (life.cfg / "sessions" / f"{dead}.json").write_text(json.dumps(
+        {"pid": dead, "sessionId": "s-back", "cwd": life.cwd, "kind": "interactive",
+         "name": "old-derived-label", "nameSource": "derived", "procStart": "1"}))
+life.peer_write(7000, "s-back", "new-derived-label")
+life.fire("s-back", "SessionStart")
+check("a resumed session is named in its live peer file, not a leftover one",
+      life.peer_name(7000) in ROSTER, f"became {life.peer_name(7000)!r}")
+life.close()
+
 # --- the statusline adopts too, and must not re-pick either ------------------
 #
 # It renders on every turn. Running with neither the session's id nor its

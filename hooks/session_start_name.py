@@ -28,6 +28,9 @@ import sys
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+import registry  # noqa: E402
+
 # Claude Code writes the peer file at startup; the hook can win the race.
 WAIT_TOTAL = 3.0
 WAIT_STEP = 0.1
@@ -65,19 +68,16 @@ def roster():
 
 
 def peer_file(session_id):
-    """The peer record for this session, waiting briefly for it to appear."""
-    sessions = CFG / "sessions"
+    """The peer record for this session, waiting briefly for it to appear.
+
+    A resumed session can find the file its previous run left behind under the
+    same id; the registry hands back the live one.
+    """
     deadline = time.time() + WAIT_TOTAL
     while True:
-        if sessions.is_dir():
-            for path in sessions.glob("*.json"):
-                try:
-                    with path.open(encoding="utf-8") as fh:
-                        rec = json.load(fh)
-                except (OSError, ValueError):
-                    continue
-                if isinstance(rec, dict) and rec.get("sessionId") == session_id:
-                    return path, rec
+        rec = registry.by_sid(session_id, CFG)
+        if rec:
+            return Path(rec.pop("path")), rec
         if time.time() >= deadline:
             return None, None
         time.sleep(WAIT_STEP)
