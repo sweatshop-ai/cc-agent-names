@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.0
+
+A name given to a session from outside the plugin is kept.
+
+- **`agent-name set <session-id> <name>`**, on the PATH of every session.
+  The boss named workers by writing the peer file itself, and the hook took a
+  name that was not on the roster for Claude Code's own label: it was replaced
+  on the next prompt. A roster name survived the prompt but not a resume,
+  because only the hook's own pick was remembered. An assigned name is now
+  remembered as such, left alone by the hook, and handed back on resume.
+- **`agent-name get` and `agent-name forget`.** Other tools stop reading and
+  writing `agent-names/sessions.json`; it is this plugin's own file.
+- A name set with `/rename` is still never overwritten.
+
 ## 0.6.0
 
 Only a live session holds a name, and every script reads Claude Code's session

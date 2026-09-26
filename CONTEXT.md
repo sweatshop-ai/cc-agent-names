@@ -15,4 +15,9 @@ terminal. A suspended (Ctrl-Z) session is live. A record without `procStart`
 is not.
 
 **Name** — the `name` field of a registry record. This plugin picks it and
-writes it; others read it.
+writes it; others read it, and set it only through `bin/agent-name`.
+
+**Assigned name** — a name given to a session from outside the plugin
+(`agent-name set`), by the boss or by agentview's restore. Remembered with
+`assigned: true`; the hook never replaces it and a resume gives it back. It
+need not be on the roster.

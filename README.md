@@ -277,6 +277,27 @@ Supported: `model`, `context-length`, `git-branch`, `git-changes`, `separator`.
 This part is incidental to naming and will probably move to its own project.
 `WRAP_STATUSLINE=0` skips it entirely.
 
+## Naming a session from another tool
+
+`agent-name` is on the PATH of every Claude Code session once the plugin is
+installed (Claude Code adds each plugin's `bin/` directory):
+
+```
+agent-name set <session-id> <name>   # name it, and keep the name
+agent-name get <session-id>          # the name it has, or will get back
+agent-name forget <session-id>       # drop what it was called
+```
+
+A name set this way need not be on the roster. It is remembered as assigned,
+so the hook leaves the session alone while it carries it, and a resume hands
+it back. A name set with `/rename` is never overwritten; `set` prints the name
+in effect. [claude-boss](https://github.com/sweatshop-ai/claude-boss) names its
+workers this way, and agentview names a conversation it is about to restore.
+
+Writing `name` into `~/.claude/sessions/<pid>.json` directly still works until
+the next prompt: a name that is not on the roster and not assigned looks like
+Claude Code's own label, and the hook replaces it.
+
 ## Customising
 
 Everything user-editable lives in `~/.claude/agent-names/`:
