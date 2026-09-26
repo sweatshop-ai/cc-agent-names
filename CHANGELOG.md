@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.6.0
+
+Only a live session holds a name, and every script reads Claude Code's session
+registry the same way.
+
+- **A name held by a leftover peer file is free again.** Claude Code does not
+  always remove `sessions/<pid>.json` when a session ends, and a file was
+  enough to keep its name taken. A session is now live only when its pid
+  exists with the start time the file records (`procStart`), it is not a
+  zombie, and a terminal session still has its terminal. A suspended (Ctrl-Z)
+  session is live.
+- **A resumed session is named in its own peer file.** A resume gets a new pid
+  while the previous run's file can linger under the same session id; the hook
+  wrote the name into whichever the directory listing met first, and the
+  resumed session stayed unnamed.
+- **`roster.py` marks your own session again.** It looked for
+  `CLAUDE_SESSION_ID`, which Claude Code never sets.
+- **`scripts/registry.py`** is the one reader of the registry: `live()`,
+  `by_pid()`, `by_sid()`, `own()`, `transcript_of()`, and a CLI for shell
+  scripts. agentview and claude-boss carry a vendored copy. `CONTEXT.md`
+  defines the terms.
+- **Removed `optional/hook-mode` and `scripts/lib.sh`**, the older hook path
+  with its own `registry.json`. It could not run beside the main path.
+  `uninstall.sh` still unwires an old registration of it.
+
 ## 0.5.0
 
 The plugin moves to the sweatshop-ai org, and a session stops being renamed

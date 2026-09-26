@@ -5,33 +5,24 @@ ListAgents already shows names, but not what each session is working on. This
 joins Claude's peer files into a "who is on what" view, which is the question
 you actually ask before sending someone a message.
 """
-import json
-import os
 import sys
 from pathlib import Path
 
-cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR", str(Path.home() / ".claude")))
-sessions_dir = cfg / "sessions"
-me = os.environ.get("CLAUDE_SESSION_ID", "")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import registry  # noqa: E402
 
-rows = []
-if sessions_dir.is_dir():
-    for path in sorted(sessions_dir.glob("*.json")):
-        try:
-            d = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            continue
-        if not isinstance(d, dict):
-            continue
-        rows.append({
-            "name": d.get("name") or "(unnamed)",
-            "named": d.get("nameSource") is None,
-            "kind": d.get("kind") or "?",
-            "status": d.get("status") or "?",
-            "cwd": d.get("cwd") or "",
-            "tmux": d.get("tmux") or "",
-            "sid": d.get("sessionId") or "",
-        })
+own = registry.own()
+me = (own or {}).get("sessionId", "")
+
+rows = [{
+    "name": d.get("name") or "(unnamed)",
+    "named": d.get("nameSource") is None,
+    "kind": d.get("kind") or "?",
+    "status": d.get("status") or "?",
+    "cwd": d.get("cwd") or "",
+    "tmux": d.get("tmux") or "",
+    "sid": d.get("sessionId") or "",
+} for d in registry.live()]
 
 if not rows:
     print("No Claude sessions are registered.")

@@ -35,6 +35,9 @@ import sys
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import registry  # noqa: E402
+
 # A reservation only has to cover the gap between choosing a name and Claude
 # writing its peer file -- a second or two. After that the peer file itself says
 # the name is taken, so the reservation is redundant. Holding one for longer just
@@ -67,30 +70,17 @@ def reservation(entry):
 
 
 def live_names(mine=""):
-    """Names currently held by running sessions, per Claude's own peer files.
+    """Names currently held by live sessions, per Claude's own registry.
 
     A session's own record is skipped. Otherwise a session asking to be renamed
     -- which is what a `collision` or a re-derived label amounts to -- would find
     its own name in the taken set and be pushed off it by itself.
+
+    Only live sessions count. A peer file that outlived its session used to
+    hold its name forever.
     """
-    taken = set()
-    sessions = cfg / "sessions"
-    if not sessions.is_dir():
-        return taken
-    for path in sessions.glob("*.json"):
-        try:
-            with path.open(encoding="utf-8") as fh:
-                data = json.load(fh)
-        except (OSError, ValueError):
-            continue
-        if not isinstance(data, dict):
-            continue
-        if mine and data.get("sessionId") == mine:
-            continue
-        name = data.get("name")
-        if name:
-            taken.add(name)
-    return taken
+    return {rec["name"] for rec in registry.live(cfg)
+            if rec.get("name") and not (mine and rec.get("sessionId") == mine)}
 
 
 def project_key(cwd):

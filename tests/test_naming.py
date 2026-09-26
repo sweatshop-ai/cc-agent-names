@@ -131,26 +131,43 @@ check("a session with no peer file exits cleanly", proc.returncode == 0,
 # while a sibling session held the project's name.
 
 class Life:
-    """One config dir, many hook firings -- a session's life, not a snapshot."""
+    """One config dir, many hook firings -- a session's life, not a snapshot.
+
+    Only live sessions hold a name, so every session here is backed by a real
+    process: a `sleep` whose pid and start time go into its peer file, the way
+    Claude Code writes them. Tests keep naming sessions by a made-up pid; the
+    real one stays behind `self.real`.
+    """
 
     def __init__(self, cwd="/tmp/project"):
         self.tmp = tempfile.TemporaryDirectory()
         self.cfg = Path(self.tmp.name)
         (self.cfg / "sessions").mkdir()
         self.cwd = cwd
+        self.real = {}
+
+    def _path(self, pid):
+        return self.cfg / "sessions" / f"{self.real[pid].pid}.json"
 
     def peer_write(self, pid, sid, name, source="derived", kind="interactive"):
-        rec = {"pid": pid, "sessionId": sid, "cwd": self.cwd,
-               "kind": kind, "name": name}
+        if pid not in self.real:
+            self.real[pid] = subprocess.Popen(["sleep", "300"])
+        child = self.real[pid].pid
+        stat = Path(f"/proc/{child}/stat").read_text()
+        rec = {"pid": child, "sessionId": sid, "cwd": self.cwd, "kind": kind,
+               "name": name, "procStart": stat[stat.rindex(")") + 2:].split()[19]}
         if source:
             rec["nameSource"] = source
-        (self.cfg / "sessions" / f"{pid}.json").write_text(json.dumps(rec))
+        self._path(pid).write_text(json.dumps(rec))
 
     def peer_drop(self, pid):
-        (self.cfg / "sessions" / f"{pid}.json").unlink()
+        self._path(pid).unlink()
+        proc = self.real.pop(pid)
+        proc.kill()
+        proc.wait()
 
     def peer_name(self, pid):
-        return json.loads((self.cfg / "sessions" / f"{pid}.json").read_text()).get("name")
+        return json.loads(self._path(pid).read_text()).get("name")
 
     def fire(self, sid, event="UserPromptSubmit"):
         env = dict(os.environ, CLAUDE_CONFIG_DIR=str(self.cfg))
@@ -160,6 +177,9 @@ class Life:
                        capture_output=True, text=True, timeout=30, env=env)
 
     def close(self):
+        for proc in self.real.values():
+            proc.kill()
+            proc.wait()
         self.tmp.cleanup()
 
 
@@ -213,6 +233,33 @@ life.fire("s-second", "SessionStart")
 resumed = life.peer_name(5001)
 check("but never takes a name a live session already holds",
       resumed != mine and resumed in ROSTER, f"became {resumed!r}")
+life.close()
+
+# A peer file can outlive its session. Its name is free: only a live session
+# holds one.
+life, mine = second_session_in_project()
+life.peer_drop(5000)
+life.peer_write(6000, "s-third", mine, source=None)
+stale = life.real.pop(6000)                                   # exits, file stays
+stale.kill()
+stale.wait()
+life.peer_write(5001, "s-second", "another-derived-label")
+life.fire("s-second", "SessionStart")
+check("a name held only by a peer file whose session has exited is free again",
+      life.peer_name(5001) == mine, f"was {mine!r}, became {life.peer_name(5001)!r}")
+life.close()
+
+# A resume gets a new pid, and the previous run's file can linger under the
+# same session id. The name goes to the live one.
+life = Life()
+for dead in range(1, 6):                                      # several, so glob order cannot help
+    (life.cfg / "sessions" / f"{dead}.json").write_text(json.dumps(
+        {"pid": dead, "sessionId": "s-back", "cwd": life.cwd, "kind": "interactive",
+         "name": "old-derived-label", "nameSource": "derived", "procStart": "1"}))
+life.peer_write(7000, "s-back", "new-derived-label")
+life.fire("s-back", "SessionStart")
+check("a resumed session is named in its live peer file, not a leftover one",
+      life.peer_name(7000) in ROSTER, f"became {life.peer_name(7000)!r}")
 life.close()
 
 # --- the statusline adopts too, and must not re-pick either ------------------

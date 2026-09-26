@@ -23,47 +23,25 @@ too: it holds whatever you were given at startup, or the name you set later with
 
 Prints nothing if the address belongs to no live session.
 """
-import json
-import os
 import sys
 from pathlib import Path
 
-CFG = Path(os.environ.get("CLAUDE_CONFIG_DIR", str(Path.home() / ".claude")))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import registry  # noqa: E402
 
 
 def resolve(address):
     # Envelopes carry a `uds:` scheme; the peer file stores the bare path.
     sock = address[4:] if address.startswith("uds:") else address
-    sessions = CFG / "sessions"
-    if not sessions.is_dir():
-        return ""
-    for path in sessions.glob("*.json"):
-        try:
-            with path.open(encoding="utf-8") as fh:
-                rec = json.load(fh)
-        except (OSError, ValueError):
-            continue
-        if isinstance(rec, dict) and rec.get("messagingSocketPath") == sock:
+    for rec in registry.live():
+        if rec.get("messagingSocketPath") == sock:
             return rec.get("name") or ""
     return ""
 
 
 def own_name():
-    session_id = os.environ.get("CLAUDE_CODE_SESSION_ID", "")
-    if not session_id:
-        return ""
-    sessions = CFG / "sessions"
-    if not sessions.is_dir():
-        return ""
-    for path in sessions.glob("*.json"):
-        try:
-            with path.open(encoding="utf-8") as fh:
-                rec = json.load(fh)
-        except (OSError, ValueError):
-            continue
-        if isinstance(rec, dict) and rec.get("sessionId") == session_id:
-            return rec.get("name") or ""
-    return ""
+    rec = registry.own()
+    return (rec or {}).get("name") or ""
 
 
 if __name__ == "__main__":

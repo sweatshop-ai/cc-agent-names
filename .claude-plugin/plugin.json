@@ -1,7 +1,7 @@
 {
   "name": "agent-names",
   "displayName": "Agent Names",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Gives each Claude Code session a human first name, so parallel sessions become people you can talk with and about. The name is the address ListAgents shows and SendMessage delivers to, it stays with a project across restarts, and it never overwrites your conversation title.",
   "author": {
     "name": "Thierry De Marre",

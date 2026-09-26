@@ -16,6 +16,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import registry  # noqa: E402
+
 HERE = Path(__file__).resolve().parent
 MACHINE_NAMED = ("derived", "auto", "collision")
 NAMED_KINDS = ("interactive", "bg")
@@ -57,19 +60,12 @@ def roster():
 
 def main():
     pool = roster()
-    sessions = cfg / "sessions"
-    if not sessions.is_dir():
-        print("no sessions directory")
-        return
-
     renamed = skipped = 0
-    for path in sorted(sessions.glob("*.json")):
-        try:
-            with path.open(encoding="utf-8") as fh:
-                rec = json.load(fh)
-        except (OSError, ValueError):
-            continue
-        if not isinstance(rec, dict) or rec.get("kind") not in NAMED_KINDS:
+    # Live sessions only: a peer file its session left behind has nobody to
+    # answer to the name.
+    for rec in registry.live(cfg):
+        path = Path(rec["path"])
+        if rec.get("kind") not in NAMED_KINDS:
             continue
         # A background job carries a label with no nameSource, so roster
         # membership is the only signal that the name is already ours.
