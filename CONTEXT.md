@@ -21,3 +21,7 @@ writes it; others read it, and set it only through `bin/agent-name`.
 (`agent-name set`), by the boss or by agentview's restore. Remembered with
 `assigned: true`; the hook never replaces it and a resume gives it back. It
 need not be on the roster.
+
+**Blocklist** — `agent-names/blocklist.txt`, names never to hand out. Subtracted
+from the active roster; `Anna` blocks `Anna-2`. It outranks a remembered or
+assigned name at the next pick, and never renames a running session.

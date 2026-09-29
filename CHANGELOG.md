@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.0
+
+Names you never want handed out.
+
+- **`~/.claude/agent-names/blocklist.txt`.** One name per line, same syntax as
+  `names.txt`, case-insensitive. It is subtracted from the active pool, bundled
+  or your own, so a colleague's first name stays out without copying the whole
+  roster into your own `names.txt` and losing every name added by upgrades.
+- Blocking `Anna` also blocks `Anna-2`, the overflow name.
+- A project's remembered name, or a session's own (assigned or picked), that is
+  now blocked is not handed back; the next pick chooses another.
+- `agent-name set` refuses a blocked name: exit 1, nothing remembered.
+- A running session keeps its name until it ends.
+
 ## 0.7.0
 
 A name given to a session from outside the plugin is kept.

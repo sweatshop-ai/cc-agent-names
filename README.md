@@ -179,6 +179,23 @@ EOF
 Your next session is one of those, picked at random from the ones no live
 session is holding.
 
+**Keep some names out.** A colleague called Yuki makes "check with Yuki" ambiguous.
+List the names to avoid in `~/.claude/agent-names/blocklist.txt`, one per line
+(`#` comments and blank lines are skipped, case does not matter):
+
+```
+# colleagues
+Yuki
+Amir
+```
+
+It is subtracted from whichever pool is active, the bundled one or your own
+`names.txt`, so upgrades keep adding names and these stay out. Blocking `Yuki`
+also blocks the `Yuki-2` names handed out when sessions outnumber names, and
+`agent-name set` refuses a blocked name. A project or session that had
+remembered a name you then block gets a new one at its next pick. A session
+that is already running keeps its name until it ends.
+
 **Make the list long: more names than the repos you work in, plus a few.** Fifty
 is comfortable for most people. The bundled roster is 217.
 
@@ -305,6 +322,7 @@ Everything user-editable lives in `~/.claude/agent-names/`:
 | File | Purpose |
 |---|---|
 | `names.txt` | Your own roster. Create it to override the bundled pool; upgrades never touch it. Delete a name and no project will use it again. |
+| `blocklist.txt` | Names never to hand out, one per line. Subtracted from the bundled roster or your own `names.txt`. |
 | `projects.json` | Which name each project keeps. Delete an entry to let a project pick a new one. |
 | `config.json` | `statusline` (inner command), `fast` (use the native renderer). |
 | `sessions.json` | Which name each session keeps, so it survives a relabel or a resume. Machine-managed; entries expire after a month. |
