@@ -37,6 +37,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import registry  # noqa: E402
+import blocklist  # noqa: E402
+from blocklist import base_name  # noqa: E402
 
 # A reservation only has to cover the gap between choosing a name and Claude
 # writing its peer file -- a second or two. After that the peer file itself says
@@ -122,25 +124,15 @@ def save_map(path, data):
         pass
 
 
-def base_name(name):
-    """The root a suffixed name hangs off: `Anna-2` is Anna's.
-
-    Retiring Anna from names.txt has to retire Anna-2 with her, or a remembered
-    name could outlive the roster it came from.
-    """
-    root = name.rsplit("-", 1)
-    if len(root) == 2 and root[1].isdigit():
-        return root[0]
-    return name
-
-
 def load_pool():
+    blocked = blocklist.load(cfg)
     seen, pool = set(), []
     try:
         with names_file.open(encoding="utf-8") as fh:
             for line in fh:
                 name = line.strip()
-                if name and not name.startswith("#") and name not in seen:
+                if (name and not name.startswith("#") and name not in seen
+                        and not blocklist.is_blocked(name, blocked)):
                     seen.add(name)
                     pool.append(name)
     except OSError:
@@ -224,10 +216,12 @@ def main():
                                    if not sid or reservation(e)[1] != sid}
         free = [n for n in pool if n not in taken]
 
+        blocked = blocklist.load(cfg)
         remembered = (projects.get(key) or {}).get("name")
-        # Editing a name out of names.txt is how you retire it. A preference
+        # Editing a name out of names.txt is how you retire it, and blocklist.txt
+        # is how you keep one out of a roster you do not own. A preference
         # recorded before that must not resurrect it.
-        if remembered and remembered not in pool:
+        if remembered and (remembered not in pool or blocklist.is_blocked(remembered, blocked)):
             remembered = None
         # Every name another project has claimed, so a new project starts with
         # an identity of its own rather than borrowing one already in use.
@@ -240,8 +234,10 @@ def main():
         entry = (sessions.get(sid) or {}) if sid else {}
         mine = entry.get("name")
         # A name assigned from outside (`agent-name set`) was never the roster's
-        # to retire; anything else leaves with its roster entry.
-        if mine and not entry.get("assigned") and base_name(mine) not in pool:
+        # to retire; anything else leaves with its roster entry. Blocking a name
+        # outranks both: it is the one thing an assignment cannot keep.
+        if mine and (blocklist.is_blocked(mine, blocked)
+                     or (not entry.get("assigned") and base_name(mine) not in pool)):
             mine = None
 
         if mine and mine not in taken:

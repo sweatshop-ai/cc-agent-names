@@ -5,6 +5,8 @@
     agent-name get SESSION_ID        the name it has now, or the one it will get back
     agent-name forget SESSION_ID     drop what this session was called
 
+`set` refuses a name on `blocklist.txt` (exit 1, nothing remembered).
+
 The boss names a worker this way, and agentview names a conversation it is
 about to resume. The name need not be on the roster. An assigned name is
 remembered in `sessions.json` with `assigned: true`, which is what keeps it:
@@ -26,6 +28,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import blocklist  # noqa: E402
 import registry  # noqa: E402
 
 
@@ -118,7 +121,12 @@ def forget(session_id, cfg=None):
 def main(argv):
     cmd, args = (argv[0] if argv else ""), argv[1:]
     if cmd == "set" and len(args) == 2 and args[1].strip():
-        print(set_name(args[0], args[1].strip()))
+        name = args[1].strip()
+        if blocklist.is_blocked(name, blocklist.load(registry.config_dir())):
+            print(f"agent-name: {name} is on the blocklist "
+                  f"({state_dir() / 'blocklist.txt'})", file=sys.stderr)
+            return 1
+        print(set_name(args[0], name))
         return 0
     if cmd == "get" and len(args) == 1:
         name = get_name(args[0])
