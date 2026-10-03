@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.1
+
+The `agent-names` skill description is shorter: 412 → 141 characters.
+
+Claude Code lists every skill's description in every session, so each character
+is paid on every turn. The description now leads with its triggers, one per
+case: "who am I", "who's running on what", a name the user says that the session
+does not know (dictated text included), and a peer name that looks
+machine-made. "what's my name" is the first case said twice; "list the agents",
+"who is working on X" and "about to message a peer and need its name" are the
+second.
+
 ## 0.7.0
 
 A name given to a session from outside the plugin is kept.

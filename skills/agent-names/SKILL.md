@@ -1,6 +1,6 @@
 ---
 name: agent-names
-description: Use when you need to know which Claude session you are, who else is running and on what, or how sessions are named - triggered by "who am I", "what's my name", "who's running", "who is working on X", "list the agents", when you are about to message a peer and need its name, when a peer messages you and its name looks machine-generated, or when the user says a name you do not recognise, dictated text included.
+description: Use on "who am I", "who's running on what", a name the user says that you do not know (dictated too), or a peer name that looks machine-made.
 ---
 
 # Agent names
