@@ -239,6 +239,10 @@ job = lap.start(lap.path("srv/james"), env=james, kind="bg", event="UserPromptSu
 lap.fire(job, env=james)
 check("a James background job keeps James on the next prompt",
       lap.name(job) == "James", f"became {lap.name(job)!r}")
+lap.write(job, "Dmitri", source=None, kind="bg")        # named before CAN_NAME was set
+lap.fire(job, env=james)
+check("a session carrying a roster name becomes James once CAN_NAME is set",
+      lap.name(job) == "James", f"stayed {lap.name(job)!r}")
 overlap = lap.start(lap.path("srv/james"), env=james)
 check("a run that overlaps the last one is James too",
       lap.name(overlap) == "James", f"got {lap.name(overlap)!r}")

@@ -58,11 +58,11 @@ def roster():
 
     A job's name has no nameSource to check -- Claude Code writes the label
     without one -- so membership of the roster is what distinguishes a name we
-    gave from a label we should replace. Every area's roster counts.
+    gave from a label we should replace. Names on an area roster count too.
     """
     cfg_names = CFG / "agent-names" / "names.txt"
     path = cfg_names if cfg_names.is_file() else (HERE.parent / "data" / "names.txt")
-    in_areas = areas.names(areas.load(areas.path_of(CFG / "agent-names")))
+    in_areas = areas.names_in(CFG / "agent-names")
     try:
         with path.open(encoding="utf-8") as fh:
             return in_areas | {ln.strip() for ln in fh if ln.strip() and not ln.startswith("#")}
@@ -106,7 +106,7 @@ def release(name):
         pass
 
 
-def replaceable(rec, pool, assigned=None):
+def replaceable(rec, pool, assigned=None, fixed=""):
     """True when this session's current name is Claude Code's, not a person's.
 
     Two shapes of machine name exist. An interactive session carries
@@ -117,6 +117,8 @@ def replaceable(rec, pool, assigned=None):
     source = rec.get("nameSource")
     if source == "user":
         return False
+    if fixed:
+        return rec.get("name") != fixed   # CAN_NAME: any other name gives way
     if assigned and rec.get("name") == assigned:
         return False              # given to it by the boss or a restore, on purpose
     if source in MACHINE:
@@ -124,12 +126,12 @@ def replaceable(rec, pool, assigned=None):
     return (rec.get("name") or "") not in pool
 
 
-def write_name(path, name, pool):
+def write_name(path, name, pool, fixed=""):
     """Replace the name in place, atomically -- never a half-written peer file."""
     try:
         with path.open(encoding="utf-8") as fh:
             fresh = json.load(fh)
-        if not replaceable(fresh, pool):
+        if not replaceable(fresh, pool, fixed=fixed):
             return False          # someone named it while we were choosing
         fresh["name"] = name
         fresh.pop("nameSource", None)
@@ -186,7 +188,7 @@ def main():
     pool = roster()
     # CAN_NAME in the session's environment fixes its name, like an assigned one.
     fixed = (os.environ.get("CAN_NAME") or "").strip()
-    if not replaceable(rec, pool, fixed or agent_name.assigned(session_id, CFG)):
+    if not replaceable(rec, pool, agent_name.assigned(session_id, CFG), fixed):
         # Already named -- by /rename, by us on an earlier start, or by us on an
         # earlier prompt. Tell the session what it is called only at the start of
         # a session; repeating it on every prompt would be noise.
@@ -198,7 +200,7 @@ def main():
     name = pick(rec.get("cwd") or payload.get("cwd") or "", session_id)
     if not name:
         return
-    if write_name(path, name, pool):
+    if write_name(path, name, pool, fixed):
         # The peer file now says the name is taken, so the reservation that
         # covered the gap has nothing left to cover. Dropping it here is what
         # keeps a short-lived session from locking its project out of its own

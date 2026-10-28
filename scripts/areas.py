@@ -26,6 +26,7 @@ from pathlib import Path
 
 
 def path_of(state):
+    """Where areas.json lives: `CAN_AREAS`, like `CAN_NAMES`, can point elsewhere."""
     return Path(os.environ.get("CAN_AREAS") or (Path(state) / "areas.json"))
 
 
@@ -84,6 +85,16 @@ def names(areas):
     return {n for area in areas.values() for n in area["roster"]}
 
 
+def names_in(state):
+    """Every area roster name of the areas.json in this state directory.
+
+    A job's label carries no nameSource, so the hook and adopt_all know a name
+    is the plugin's own only by finding it among the names it hands out; an
+    area's names are among them even when names.txt does not have them.
+    """
+    return names(load(path_of(state)))
+
+
 def grow(path, area_name, name):
     """Add a name to an area's roster for good, keeping the rest of the file as it is.
 
@@ -126,7 +137,7 @@ def _family_root(path, keys):
     `X-wt/<n>`, and a sibling `X-<anything>` when `X` itself is a project. They
     are followed to the end, so `X-wt-160` and `X-mira-libmcp` reach `X`.
     """
-    for _ in range(16):
+    for _ in range(16):              # each step shortens the path; 16 is ample
         root = _one_up(path, keys)
         if root == path:
             break
@@ -182,7 +193,10 @@ def propose(projects, home=None):
     name an earlier area took. Everything else stays named per project.
     """
     home = os.path.normpath(home or os.path.expanduser("~"))
-    tilde = lambda p: "~" + p[len(home):] if p == home or p.startswith(home + "/") else p  # noqa: E731
+
+    def tilde(path):
+        return "~" + path[len(home):] if path == home or path.startswith(home + "/") else path
+
     named = {k: v for k, v in projects.items() if isinstance(v, dict) and v.get("name")}
     keys = [k for k in named if k.startswith(home + "/") and not SCRATCHPAD.match(k)]
 
@@ -194,14 +208,17 @@ def propose(projects, home=None):
         rel = tilde(path)[2:]
         return rel[len("Projects/"):] if rel.startswith("Projects/") else rel
 
-    def roster(members, first=None):
+    taken_by_areas = set()
+
+    def crew(members, first=None):
+        """Up to three names these checkouts carry, none an earlier area took."""
         order = sorted(members, key=lambda k: -(named[k].get("last_used") or 0))
         if first in named:
             order = [first] + [k for k in order if k != first]
         out = []
         for key in order:
             name = named[key]["name"]
-            if name not in out and name not in used:
+            if name not in out and name not in taken_by_areas:
                 out.append(name)
         return out[:ROSTER_SIZE]
 
@@ -221,22 +238,22 @@ def propose(projects, home=None):
                     clients.setdefault((_family_root(root, keys), sub), []).append(key)
                     break
 
-    out, used, covered = {}, set(), 0
+    out, covered = {}, 0
     for root in sorted(set(families) | {r for r, _ in clients}):
         members = families.get(root, [])
         if len(members) > 1:
-            names_ = roster(members, root)
+            names_of = crew(members, root)
             out[area_name(root)] = {"paths": [tilde(root), tilde(root) + "-*"],
-                                    "roster": names_}
-            used.update(names_)
+                                    "roster": names_of}
+            taken_by_areas.update(names_of)
             covered += len(members)
         for (croot, sub), seen in sorted(clients.items()):
             if croot != root:
                 continue
-            names_ = roster(seen)
-            if names_:
+            names_of = crew(seen)
+            if names_of:
                 out[f"{area_name(root)}/{sub}"] = {
                     "paths": [f"{tilde(root)}/{sub}", f"{tilde(root)}-*/{sub}"],
-                    "roster": names_}
-                used.update(names_)
+                    "roster": names_of}
+                taken_by_areas.update(names_of)
     return out, covered

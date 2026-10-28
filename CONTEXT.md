@@ -24,9 +24,10 @@ need not be on the roster.
 
 **Work area** — a client folder or a repo family, declared in `areas.json` by
 path globs, so every worktree of it counts as the same place. A session under
-an area takes a name from the area's roster instead of the project's.
+an area takes a name from its area roster instead of the project's.
 
-**Roster** — an area's names, in order. The next session takes the first free
+**Area roster** — an area's names, in order (the plain *roster* is the
+whole pool of names, `names.txt`). The next session takes the first free
 one; a spent roster grows by a name no area holds, kept for good.
 
 **Resident** — a session whose environment carries `CAN_NAME`: it registers as

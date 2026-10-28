@@ -52,7 +52,7 @@ def roster():
     """The names this plugin hands out: the files pick_name.py reads, areas included."""
     override = cfg / "agent-names" / "names.txt"
     path = override if override.is_file() else (HERE.parent / "data" / "names.txt")
-    in_areas = areas.names(areas.load(areas.path_of(cfg / "agent-names")))
+    in_areas = areas.names_in(cfg / "agent-names")
     try:
         with path.open(encoding="utf-8") as fh:
             return in_areas | {ln.strip() for ln in fh if ln.strip() and not ln.startswith("#")}

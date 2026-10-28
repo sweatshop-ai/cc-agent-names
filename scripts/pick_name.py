@@ -283,17 +283,19 @@ def main():
             mine = None
 
         fixed = (os.environ.get("CAN_NAME") or "").strip()
+        # A resident or an area session is never named per project, so it
+        # leaves projects.json as it found it.
+        per_project = not fixed and area is None
         if fixed:
             # A resident's name, set in its environment: the same on every run,
             # held or not, and no roster or project is consulted.
-            chosen, remembered = fixed, None
+            chosen = fixed
         elif mine and mine not in taken:
             chosen = mine                          # this session's own name, free
         elif area is not None:
             chosen, joins = area_pick(area, taken, pool, in_areas, spoken_for)
             if joins:
                 areas.grow(areas_file, area_name, chosen)
-            remembered = None                      # an area never touches projects.json
         elif remembered and remembered not in taken:
             chosen = remembered                    # this project's usual name, free
         elif free:
@@ -306,7 +308,7 @@ def main():
         else:
             chosen = suffixed(pool, taken)
 
-        if remembered == chosen:
+        if per_project and remembered == chosen:
             projects[key]["last_used"] = int(now)
             save_map(projects_file, projects)
 
