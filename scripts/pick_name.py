@@ -214,7 +214,7 @@ def main():
         return
 
     pool = load_pool()
-    if not pool:
+    if not pool and not (os.environ.get("CAN_NAME") or "").strip():
         return
 
     state.mkdir(parents=True, exist_ok=True)

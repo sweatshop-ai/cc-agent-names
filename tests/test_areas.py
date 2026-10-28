@@ -203,6 +203,20 @@ check("a relabelled Leila stays Leila while Dmitri is free",
       lap.name(second) == "Leila", f"became {lap.name(second)!r}")
 lap.close()
 
+# --- a hand-edited areas.json with mistakes -----------------------------------
+
+lap = Laptop(dict(KLIUM, typo={"paths": ["~/Projects/typo"], "roster": "Zed"},
+                  worse={"paths": "~/Projects/worse", "roster": 7}))
+typo = lap.start(lap.path("Projects/typo"))
+worse = lap.start(lap.path("Projects/worse"))
+klium = lap.start(lap.path(WORKTREES[0]))
+check("a roster written as a string is not read letter by letter",
+      lap.name(typo) in ROSTER and len(lap.name(typo)) > 1, f"got {lap.name(typo)!r}")
+check("a malformed area does not stop naming",
+      lap.name(worse) in ROSTER and lap.name(klium) == "Dmitri",
+      f"worse {lap.name(worse)!r}, klium {lap.name(klium)!r}")
+lap.close()
+
 # --- a roster name that names.txt does not have -------------------------------
 #
 # A job's label carries no nameSource, so the hook knows a name is its own only
@@ -247,6 +261,13 @@ overlap = lap.start(lap.path("srv/james"), env=james)
 check("a run that overlaps the last one is James too",
       lap.name(overlap) == "James", f"got {lap.name(overlap)!r}")
 lap.stop_all()
+
+(lap.cfg / "agent-names" / "names.txt").write_text("# nobody\n")
+sid = lap.start(lap.path("srv/james"), env=james)
+check("CAN_NAME names a session even when names.txt is empty",
+      lap.name(sid) == "James", f"got {lap.name(sid)!r}")
+lap.stop(sid)
+(lap.cfg / "agent-names" / "names.txt").unlink()
 
 plain = lap.start(lap.path(WORKTREES[0]))
 check("a session without CAN_NAME is not James",

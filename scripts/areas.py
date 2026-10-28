@@ -48,8 +48,10 @@ def load(path):
     for name, area in areas.items():
         if not isinstance(area, dict):
             continue
-        paths = [p for p in area.get("paths") or [] if isinstance(p, str) and p]
-        roster = [n for n in area.get("roster") or [] if isinstance(n, str) and n.strip()]
+        paths, roster = area.get("paths"), area.get("roster")
+        paths = [p for p in paths if isinstance(p, str) and p] if isinstance(paths, list) else []
+        roster = ([n for n in roster if isinstance(n, str) and n.strip()]
+                  if isinstance(roster, list) else [])
         if paths:
             out[name] = {"paths": paths, "roster": [n.strip() for n in roster]}
     return out
@@ -106,8 +108,8 @@ def grow(path, area_name, name):
     if not isinstance(area, dict):
         return
     roster = area.setdefault("roster", [])
-    if name in roster:
-        return
+    if not isinstance(roster, list) or name in roster:
+        return                       # a roster it cannot read is the person's to fix
     roster.append(name)
     tmp = path.with_suffix(".tmp")
     try:
@@ -192,7 +194,11 @@ def propose(projects, home=None):
     checkout's name first, then the most recent, three at most, and never a
     name an earlier area took. Everything else stays named per project.
     """
-    home = os.path.normpath(home or os.path.expanduser("~"))
+    # Worked on with "/" throughout, whatever the platform writes: Windows
+    # keys can carry either separator.
+    slash = lambda p: os.path.normpath(p).replace(os.sep, "/")  # noqa: E731
+    home = slash(home or os.path.expanduser("~"))
+    projects = {slash(k): v for k, v in projects.items()}
 
     def tilde(path):
         return "~" + path[len(home):] if path == home or path.startswith(home + "/") else path
