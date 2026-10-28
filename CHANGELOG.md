@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.0
+
+Names per work area: the same people come back to the same client.
+
+- **`areas.json`** maps path globs to an area with a small roster. A session
+  anywhere under an area, in any worktree, takes the roster's first free name;
+  a parallel session takes the next; a spent roster grows by a free name that
+  stays in it for good, never a suffix. A path no area covers is named per
+  project as before, and without an `areas.json` nothing changes.
+- **`CAN_NAME`** in a session's environment fixes its name on every run, for a
+  resident such as a nightly `claude -p` service.
+- **`agent-name areas --from-projects`** prints a proposed `areas.json` from
+  today's `projects.json`, which it only reads.
+
 ## 0.7.1
 
 The `agent-names` skill description is shorter: 412 → 141 characters.
