@@ -4,6 +4,7 @@
     agent-name set SESSION_ID NAME   name the session, and remember the name as assigned
     agent-name get SESSION_ID        the name it has now, or the one it will get back
     agent-name forget SESSION_ID     drop what this session was called
+    agent-name areas --from-projects propose an areas.json from projects.json
 
 The boss names a worker this way, and agentview names a conversation it is
 about to resume. The name need not be on the roster. An assigned name is
@@ -26,6 +27,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import areas  # noqa: E402
 import registry  # noqa: E402
 
 
@@ -115,6 +117,18 @@ def forget(session_id, cfg=None):
     _locked(cfg, drop)
 
 
+def propose_areas(cfg=None):
+    """Print an areas.json proposal. Reads projects.json, writes nothing."""
+    path = state_dir(cfg) / "projects.json"
+    projects = _load(path)
+    proposed, covered = areas.propose(projects)
+    target = areas.path_of(state_dir(cfg))
+    note = (f"Proposed from {len(projects)} entries in {path}: {len(proposed)} areas, "
+            f"covering {covered} checkouts; every other path stays named per project. "
+            f"Review it, then save it as {target}.")
+    print(json.dumps({"_proposal": note, "areas": proposed}, indent=1, ensure_ascii=False))
+
+
 def main(argv):
     cmd, args = (argv[0] if argv else ""), argv[1:]
     if cmd == "set" and len(args) == 2 and args[1].strip():
@@ -125,6 +139,9 @@ def main(argv):
         if not name:
             return 1
         print(name)
+        return 0
+    if cmd == "areas" and args == ["--from-projects"]:
+        propose_areas()
         return 0
     if cmd == "forget" and len(args) == 1:
         forget(args[0])

@@ -98,6 +98,60 @@ session may be holding that. Still never a reservation: a name a live session
 holds is off limits, so a session that has genuinely lost its name to someone
 else takes a different one.
 
+## Names per work area
+
+Per project means every worktree brings a new person. When the same people
+should keep working on the same client or repo family, give it an area in
+`~/.claude/agent-names/areas.json`:
+
+```json
+{"areas": {
+  "thinkingtoo/klium": {"paths": ["~/Projects/thinkingtoo*/clients/klium"],
+                        "roster": ["Dmitri", "Leila", "Tomas"]},
+  "thinkingtoo":       {"paths": ["~/Projects/thinkingtoo", "~/Projects/thinkingtoo-*"],
+                        "roster": ["Amir", "Yuki"]}
+}}
+```
+
+A session whose directory a glob covers, or lies anywhere under one, belongs to
+the area. Globs match one path component at a time (`*` never crosses a `/`),
+and when several areas match, the deepest glob wins: above, a session in
+`thinkingtoo-wt-bf/clients/klium` is Klium's, one in `thinkingtoo-wt-bf/docs`
+the family's.
+
+```
+thinkingtoo/clients/klium             →  Dmitri
+thinkingtoo-wt-chiara/clients/klium   →  Leila   (Dmitri is running)
+thinkingtoo-wt-bf/clients/klium       →  Tomas
+a fourth, all three running           →  Hassan, who joins Klium's roster for good
+the next day, first session           →  Dmitri
+```
+
+The first free name of the roster goes to the next session. A spent roster
+grows by a name no area holds, written into `areas.json`, never a `Dmitri-2`.
+A session that already has a name keeps it, as everywhere else. A path no area
+covers is named per project as before; without an `areas.json` nothing changes.
+`CAN_AREAS` points at a different file.
+
+To start from what you have, `agent-name areas --from-projects` reads
+`projects.json` (only reads it) and prints a proposal: a repo family wherever a
+main checkout has worktrees beside it, a client folder wherever a session's
+scratchpad shows one was worked in, and a roster of up to three names those
+checkouts already carry. Review it, then save it as `areas.json`.
+
+### A fixed name: `CAN_NAME`
+
+A resident -- a service on a server running `claude -p` every night -- should be
+the same person on every run. Set `CAN_NAME` in its environment:
+
+```
+Environment=CAN_NAME=James
+```
+
+Every session started with it is James, wherever it runs and whether or not
+another James is live, with no roster or project consulted. The name need not
+be on any roster. `/rename` still wins.
+
 ## Install
 
 As a plugin:
@@ -306,6 +360,7 @@ Everything user-editable lives in `~/.claude/agent-names/`:
 |---|---|
 | `names.txt` | Your own roster. Create it to override the bundled pool; upgrades never touch it. Delete a name and no project will use it again. |
 | `projects.json` | Which name each project keeps. Delete an entry to let a project pick a new one. |
+| `areas.json` | Work areas and their rosters (see [Names per work area](#names-per-work-area)). A spent roster grows here on its own. |
 | `config.json` | `statusline` (inner command), `fast` (use the native renderer). |
 | `sessions.json` | Which name each session keeps, so it survives a relabel or a resume. Machine-managed; entries expire after a month. |
 | `reservations.json` | Machine-managed; safe to delete. |

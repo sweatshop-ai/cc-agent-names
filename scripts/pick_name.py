@@ -25,6 +25,10 @@ sessions. Stickiness is a preference, never a reservation -- a name is only
 ever handed out if no live session holds it, so Oskar is still exactly one
 session at a time. Open a second session in the same project and it gets its
 own name rather than waiting for the first to exit.
+
+A path covered by a work area (`areas.json`, see areas.py) is named from the
+area's roster instead, and never touches projects.json. `CAN_NAME` in the
+environment overrides everything but the person's own /rename.
 """
 import fcntl
 import json
@@ -36,6 +40,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import areas  # noqa: E402
 import registry  # noqa: E402
 
 # A reservation only has to cover the gap between choosing a name and Claude
@@ -177,6 +182,32 @@ def release(name):
         pass
 
 
+def suffixed(pool, taken):
+    """More sessions than names: suffix rather than collide."""
+    base = random.choice(pool)
+    n = 2
+    while f"{base}-{n}" in taken:
+        n += 1
+    return f"{base}-{n}"
+
+
+def area_pick(area, taken, pool, in_areas, spoken_for):
+    """(name, joins): the first free name of the area's roster, or a newcomer.
+
+    A newcomer comes when the roster is spent, and joins it for good. It is a
+    name no area holds, so a person works on one area only; a name no other
+    project is known by is preferred. Only an exhausted pool falls back on a
+    suffix, which never joins a roster.
+    """
+    for name in area["roster"]:
+        if name not in taken:
+            return name, False
+    newcomers = [n for n in pool if n not in taken and n not in in_areas]
+    if not newcomers:
+        return suffixed(pool, taken), False
+    return random.choice([n for n in newcomers if n not in spoken_for] or newcomers), True
+
+
 def main():
     if len(sys.argv) > 2 and sys.argv[1] == "--release":
         release(sys.argv[2])
@@ -205,9 +236,15 @@ def main():
         held = {n: e for n, e in held.items()
                 if now - reservation(e)[0] < RESERVE_TTL}
 
+        cwd = os.environ.get("CAN_CWD") or os.getcwd()
+        areas_file = areas.path_of(state)
+        known_areas = areas.load(areas_file)
+        area_name, area = areas.match(cwd, known_areas)
+        in_areas = areas.names(known_areas)
+
         projects_file = state / "projects.json"
         projects = load_map(projects_file)
-        key = project_key(os.environ.get("CAN_CWD") or os.getcwd())
+        key = project_key(cwd)
 
         # What each session has been called. Pruned by age: a session id that
         # has not been seen in a month is not coming back.
@@ -241,27 +278,33 @@ def main():
         mine = entry.get("name")
         # A name assigned from outside (`agent-name set`) was never the roster's
         # to retire; anything else leaves with its roster entry.
-        if mine and not entry.get("assigned") and base_name(mine) not in pool:
+        if (mine and not entry.get("assigned") and base_name(mine) not in pool
+                and mine not in in_areas):
             mine = None
 
-        if mine and mine not in taken:
+        fixed = (os.environ.get("CAN_NAME") or "").strip()
+        if fixed:
+            # A resident's name, set in its environment: the same on every run,
+            # held or not, and no roster or project is consulted.
+            chosen, remembered = fixed, None
+        elif mine and mine not in taken:
             chosen = mine                          # this session's own name, free
+        elif area is not None:
+            chosen, joins = area_pick(area, taken, pool, in_areas, spoken_for)
+            if joins:
+                areas.grow(areas_file, area_name, chosen)
+            remembered = None                      # an area never touches projects.json
         elif remembered and remembered not in taken:
             chosen = remembered                    # this project's usual name, free
         elif free:
-            fresh = [n for n in free if n not in spoken_for]
+            fresh = [n for n in free if n not in spoken_for and n not in in_areas]
             chosen = random.choice(fresh or free)
             if not remembered:
                 # First session in this project: this becomes its name.
                 projects[key] = {"name": chosen, "last_used": int(now)}
                 save_map(projects_file, projects)
         else:
-            # More sessions than names. Suffix rather than collide.
-            base = random.choice(pool)
-            n = 2
-            while f"{base}-{n}" in taken:
-                n += 1
-            chosen = f"{base}-{n}"
+            chosen = suffixed(pool, taken)
 
         if remembered == chosen:
             projects[key]["last_used"] = int(now)

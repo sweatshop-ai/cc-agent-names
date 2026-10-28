@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import areas  # noqa: E402
 import registry  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
@@ -48,14 +49,15 @@ def pick(cwd, session_id=""):
 
 
 def roster():
-    """The names this plugin hands out, from the same file pick_name.py reads."""
+    """The names this plugin hands out: the files pick_name.py reads, areas included."""
     override = cfg / "agent-names" / "names.txt"
     path = override if override.is_file() else (HERE.parent / "data" / "names.txt")
+    in_areas = areas.names(areas.load(areas.path_of(cfg / "agent-names")))
     try:
         with path.open(encoding="utf-8") as fh:
-            return {ln.strip() for ln in fh if ln.strip() and not ln.startswith("#")}
+            return in_areas | {ln.strip() for ln in fh if ln.strip() and not ln.startswith("#")}
     except OSError:
-        return set()
+        return in_areas
 
 
 def main():

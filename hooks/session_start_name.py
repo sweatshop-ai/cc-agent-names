@@ -30,6 +30,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 import agent_name  # noqa: E402
+import areas  # noqa: E402
 import registry  # noqa: E402
 
 # Claude Code writes the peer file at startup; the hook can win the race.
@@ -57,15 +58,16 @@ def roster():
 
     A job's name has no nameSource to check -- Claude Code writes the label
     without one -- so membership of the roster is what distinguishes a name we
-    gave from a label we should replace.
+    gave from a label we should replace. Every area's roster counts.
     """
     cfg_names = CFG / "agent-names" / "names.txt"
     path = cfg_names if cfg_names.is_file() else (HERE.parent / "data" / "names.txt")
+    in_areas = areas.names(areas.load(areas.path_of(CFG / "agent-names")))
     try:
         with path.open(encoding="utf-8") as fh:
-            return {ln.strip() for ln in fh if ln.strip() and not ln.startswith("#")}
+            return in_areas | {ln.strip() for ln in fh if ln.strip() and not ln.startswith("#")}
     except OSError:
-        return set()
+        return in_areas
 
 
 def peer_file(session_id):
@@ -182,7 +184,9 @@ def main():
         return
 
     pool = roster()
-    if not replaceable(rec, pool, agent_name.assigned(session_id, CFG)):
+    # CAN_NAME in the session's environment fixes its name, like an assigned one.
+    fixed = (os.environ.get("CAN_NAME") or "").strip()
+    if not replaceable(rec, pool, fixed or agent_name.assigned(session_id, CFG)):
         # Already named -- by /rename, by us on an earlier start, or by us on an
         # earlier prompt. Tell the session what it is called only at the start of
         # a session; repeating it on every prompt would be noise.
