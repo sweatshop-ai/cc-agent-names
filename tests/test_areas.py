@@ -133,6 +133,7 @@ sids = [lap.start(lap.path(w)) for w in WORKTREES]
 got = [lap.name(s) for s in sids]
 check("three sessions in three worktrees of clients/klium are Dmitri, Leila, Tomas",
       got == ["Dmitri", "Leila", "Tomas"], f"got {got}")
+print(f"     {', '.join(got)}")
 
 # --- a fourth, while the three still run ------------------------------------
 
@@ -143,6 +144,7 @@ check("a fourth session gets a new name, not a suffix",
 check("and the new name joins the area's roster for good",
       lap.roster("thinkingtoo/klium") == ["Dmitri", "Leila", "Tomas", newcomer],
       f"roster is {lap.roster('thinkingtoo/klium')}")
+print(f"     fourth: {newcomer}; roster now {', '.join(lap.roster('thinkingtoo/klium'))}")
 
 # --- the next day -------------------------------------------------------------
 
@@ -152,6 +154,7 @@ monday.append(lap.start(lap.path(WORKTREES[1])))
 got = [lap.name(s) for s in monday]
 check("the next day the first session is Dmitri again, and the same four come back",
       got == ["Dmitri", "Leila", "Tomas", newcomer], f"got {got}")
+print(f"     next day: {', '.join(got)}")
 check("and the roster does not grow again",
       lap.roster("thinkingtoo/klium") == ["Dmitri", "Leila", "Tomas", newcomer],
       f"roster is {lap.roster('thinkingtoo/klium')}")
@@ -227,6 +230,7 @@ for _ in range(3):
     lap.stop(sid)
 check("CAN_NAME=James registers as James on every run",
       runs == ["James"] * 3, f"got {runs}")
+print(f"     three runs: {', '.join(runs)}")
 check("and draws nothing from the area's roster",
       lap.roster("thinkingtoo/klium") == ["Dmitri", "Leila", "Tomas"],
       f"roster is {lap.roster('thinkingtoo/klium')}")
