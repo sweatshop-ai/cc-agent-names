@@ -204,7 +204,7 @@ def area_pick(area, taken, pool, in_areas, spoken_for):
             return name, False
     newcomers = [n for n in pool if n not in taken and n not in in_areas]
     if not newcomers:
-        return suffixed(pool, taken), False
+        return suffixed(pool or area["roster"], taken), False
     return random.choice([n for n in newcomers if n not in spoken_for] or newcomers), True
 
 
@@ -214,8 +214,6 @@ def main():
         return
 
     pool = load_pool()
-    if not pool and not (os.environ.get("CAN_NAME") or "").strip():
-        return
 
     state.mkdir(parents=True, exist_ok=True)
     reservations = state / "reservations.json"
@@ -241,6 +239,9 @@ def main():
         known_areas = areas.load(areas_file)
         area_name, area = areas.match(cwd, known_areas)
         in_areas = areas.names(known_areas)
+        fixed = (os.environ.get("CAN_NAME") or "").strip()
+        if not pool and not fixed and not (area and area["roster"]):
+            return                                 # nothing to hand out
 
         projects_file = state / "projects.json"
         projects = load_map(projects_file)
@@ -282,7 +283,6 @@ def main():
                 and mine not in in_areas):
             mine = None
 
-        fixed = (os.environ.get("CAN_NAME") or "").strip()
         # A resident or an area session is never named per project, so it
         # leaves projects.json as it found it.
         per_project = not fixed and area is None
@@ -299,8 +299,11 @@ def main():
         elif remembered and remembered not in taken:
             chosen = remembered                    # this project's usual name, free
         elif free:
-            fresh = [n for n in free if n not in spoken_for and n not in in_areas]
-            chosen = random.choice(fresh or free)
+            # A name nobody is known by, else one another project is known by;
+            # an area's name only when nothing else is free.
+            outside = [n for n in free if n not in in_areas]
+            fresh = [n for n in outside if n not in spoken_for]
+            chosen = random.choice(fresh or outside or free)
             if not remembered:
                 # First session in this project: this becomes its name.
                 projects[key] = {"name": chosen, "last_used": int(now)}

@@ -203,6 +203,37 @@ check("a relabelled Leila stays Leila while Dmitri is free",
       lap.name(second) == "Leila", f"became {lap.name(second)!r}")
 lap.close()
 
+# --- an area roster when names.txt is empty ----------------------------------
+
+lap = Laptop(KLIUM)
+(lap.cfg / "agent-names" / "names.txt").write_text("# only areas\n")
+sids = [lap.start(lap.path(w)) for w in WORKTREES]
+spent = lap.start(lap.path(WORKTREES[0]))
+check("an area hands out its roster even when names.txt is empty",
+      [lap.name(s) for s in sids] == ["Dmitri", "Leila", "Tomas"],
+      f"got {[lap.name(s) for s in sids]}")
+check("and its spent roster still names the fourth",
+      lap.name(spent) != "some-derived-label", f"got {lap.name(spent)!r}")
+lap.close()
+
+# --- a new project leaves area names alone while others are free -------------
+#
+# Every free name outside the areas is already some project's: the new project
+# borrows one of those rather than a name an area's roster holds.
+
+lap = Laptop(KLIUM)
+(lap.cfg / "agent-names" / "names.txt").write_text("Dmitri\nLeila\nTomas\nAnn\nBob\n")
+(lap.cfg / "agent-names" / "projects.json").write_text(json.dumps(
+    {"/p/one": {"name": "Ann", "last_used": 1}, "/p/two": {"name": "Bob", "last_used": 1}}))
+drawn = []
+for i in range(8):
+    sid = lap.start(lap.path(f"Projects/new-{i}"))
+    drawn.append(lap.name(sid))
+    lap.stop(sid)
+check("a new project borrows a project's name before an area's",
+      set(drawn) <= {"Ann", "Bob"}, f"drew {drawn}")
+lap.close()
+
 # --- a hand-edited areas.json with mistakes -----------------------------------
 
 lap = Laptop(dict(KLIUM, typo={"paths": ["~/Projects/typo"], "roster": "Zed"},
