@@ -280,7 +280,7 @@ def main():
         # A name assigned from outside (`agent-name set`) was never the roster's
         # to retire; anything else leaves with its roster entry.
         if (mine and not entry.get("assigned") and base_name(mine) not in pool
-                and mine not in in_areas):
+                and base_name(mine) not in in_areas):
             mine = None
 
         # A resident or an area session is never named per project, so it

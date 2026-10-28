@@ -214,6 +214,14 @@ check("an area hands out its roster even when names.txt is empty",
       f"got {[lap.name(s) for s in sids]}")
 check("and its spent roster still names the fourth",
       lap.name(spent) != "some-derived-label", f"got {lap.name(spent)!r}")
+suffix = lap.name(spent)
+out = lap.fire(spent)
+check("the fourth keeps its suffix and is not re-announced on every prompt",
+      lap.name(spent) == suffix and out.strip() == "", f"became {lap.name(spent)!r}, {out[:80]}")
+lap.stop(sids[0])                                   # Dmitri frees up
+lap.fire(spent)
+check("and keeps it when a roster name frees up",
+      lap.name(spent) == suffix, f"{suffix} became {lap.name(spent)!r}")
 lap.close()
 
 # --- a new project leaves area names alone while others are free -------------
@@ -303,6 +311,15 @@ lap.stop(sid)
 plain = lap.start(lap.path(WORKTREES[0]))
 check("a session without CAN_NAME is not James",
       lap.name(plain) == "Dmitri", f"got {lap.name(plain)!r}")
+
+# adopt_all runs from a shell that may carry CAN_NAME; the sessions it adopts
+# were not started with it, so none of them becomes James.
+lap.write(plain, "another-derived-label")
+adopted = subprocess.run([sys.executable, str(ROOT / "scripts" / "adopt_all.py")],
+                         env=lap.env(james), capture_output=True, text=True, timeout=30)
+check("adopting from a shell with CAN_NAME set does not name sessions after it",
+      lap.name(plain) != "James" and lap.name(plain) != "another-derived-label",
+      f"got {lap.name(plain)!r}, {adopted.stderr[:200]}")
 lap.close()
 
 # --- agent-name areas --from-projects ---------------------------------------
@@ -315,6 +332,7 @@ lap.close()
 lap = Laptop()
 H = lap.home
 (H / "Projects/thinkingtoo/clients/klium").mkdir(parents=True)
+(H / "Projects/thinkingtoo/.claude/worktrees/bettina/clients/klium").mkdir(parents=True)
 
 
 def scratchpad(cwd, sid):
@@ -338,6 +356,8 @@ store = {
     str(H / "Projects/solo"): {"name": "Oskar", "last_used": 300},
     scratchpad(H / "Projects/thinkingtoo/clients/klium",
                "18ef1ff9-1761-49f3-89f0-188641ae4eb7"): {"name": "Leila", "last_used": 10},
+    scratchpad(H / "Projects/thinkingtoo/.claude/worktrees/bettina/clients/klium",
+               "2b1c0e8a-5d1e-4f0b-9a57-6c1d2e3f4a5b"): {"name": "Tomas", "last_used": 9},
     scratchpad(H / "Projects/thinkingtoo",
                "9f96cf96-9504-4303-83ed-3bec9ee4dab5"): {"name": "Elske", "last_used": 10},
     "/tmp": {"name": "Milos", "last_used": 10},
@@ -367,8 +387,10 @@ check("its roster is the main checkout's name, then the most recent, three at mo
 check("a client folder seen in a scratchpad becomes an area of its own",
       got.get("thinkingtoo/clients/klium") == {
           "paths": ["~/Projects/thinkingtoo/clients/klium",
-                    "~/Projects/thinkingtoo-*/clients/klium"],
-          "roster": ["Leila"]},
+                    "~/Projects/thinkingtoo-*/clients/klium",
+                    "~/Projects/thinkingtoo/.claude/worktrees/*/clients/klium",
+                    "~/Projects/thinkingtoo-wt/*/clients/klium"],
+          "roster": ["Leila", "Tomas"]},
       str(got.get("thinkingtoo/clients/klium")))
 check("a worktree of a worktree belongs to the main checkout's family",
       "thinkingtoo-mira" not in got and "render-doc-wt" not in got, f"areas {sorted(got)}")
@@ -376,7 +398,7 @@ check("a family of nested worktrees is found too",
       got.get("render-doc", {}).get("roster") == ["Pablo", "Sahar", "Mira"],
       str(got.get("render-doc")))
 check("the proposal says how many entries it read",
-      "16 entries" in proposal.get("_proposal", ""), proposal.get("_proposal", ""))
+      "17 entries" in proposal.get("_proposal", ""), proposal.get("_proposal", ""))
 check("and projects.json is left as it was", store_file.read_bytes() == before)
 check("and no areas.json is written", not lap.areas_file.exists())
 lap.close()

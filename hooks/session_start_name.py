@@ -123,7 +123,10 @@ def replaceable(rec, pool, assigned=None, fixed=""):
         return False              # given to it by the boss or a restore, on purpose
     if source in MACHINE:
         return True
-    return (rec.get("name") or "") not in pool
+    # A suffix (`Leila-2`) is ours when its base is: more sessions than names.
+    name = rec.get("name") or ""
+    root, _, n = name.rpartition("-")
+    return name not in pool and not (n.isdigit() and root in pool)
 
 
 def write_name(path, name, pool, fixed=""):

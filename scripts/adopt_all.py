@@ -40,6 +40,8 @@ def pick(cwd, session_id=""):
     afterwards rather than being re-picked the next time Claude Code relabels it.
     """
     env = dict(os.environ, CAN_CWD=cwd or os.getcwd(), CAN_SESSION=session_id)
+    # CAN_NAME belongs to the shell this runs from, not to the sessions it adopts.
+    env.pop("CAN_NAME", None)
     try:
         out = subprocess.run([sys.executable, str(HERE / "pick_name.py")], env=env,
                              capture_output=True, text=True, timeout=8)

@@ -259,7 +259,9 @@ def propose(projects, home=None):
             names_of = crew(seen)
             if names_of:
                 out[f"{area_name(root)}/{sub}"] = {
-                    "paths": [f"{tilde(root)}/{sub}", f"{tilde(root)}-*/{sub}"],
+                    "paths": [f"{tilde(root)}/{sub}", f"{tilde(root)}-*/{sub}",
+                              f"{tilde(root)}/.claude/worktrees/*/{sub}",
+                              f"{tilde(root)}-wt/*/{sub}"],
                     "roster": names_of}
                 taken_by_areas.update(names_of)
     return out, covered
