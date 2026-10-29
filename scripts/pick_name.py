@@ -29,12 +29,6 @@ own name rather than waiting for the first to exit.
 A path covered by a work area (`areas.json`, see areas.py) is named from the
 area's roster instead, and never touches projects.json. `CAN_NAME` in the
 environment overrides everything but the person's own /rename.
-
-`--dry-run` chooses as usual and writes nothing: no roster grows, no
-preference or reservation is recorded. Each `--taken NAME` counts a name as
-taken, so a dry run over several sessions can say which names it has already
-proposed. Both are arguments, not environment, so a variable left exported in
-a shell can never turn a session's real pick into a dry one.
 """
 import fcntl
 import json
@@ -65,8 +59,6 @@ state = cfg / "agent-names"
 names_file = Path(os.environ.get("CAN_NAMES") or (state / "names.txt"))
 if not names_file.is_file():
     names_file = Path(__file__).resolve().parent.parent / "data" / "names.txt"
-DRY_RUN = "--dry-run" in sys.argv[1:]
-TAKEN = {sys.argv[i + 1] for i, a in enumerate(sys.argv[1:-1], 1) if a == "--taken"}
 
 
 def reservation(entry):
@@ -126,8 +118,6 @@ def load_map(path):
 
 
 def save_map(path, data):
-    if DRY_RUN:
-        return
     tmp = path.with_suffix(".tmp")
     try:
         with tmp.open("w", encoding="utf-8") as fh:
@@ -228,14 +218,10 @@ def main():
 
     pool = load_pool()
 
-    if not (DRY_RUN and not state.is_dir()):
-        state.mkdir(parents=True, exist_ok=True)
+    state.mkdir(parents=True, exist_ok=True)
     reservations = state / "reservations.json"
 
-    # A dry run on a machine with no state yet has nothing to lock, and must
-    # not create the directory to lock it.
-    lock_path = state / "pick.lock" if state.is_dir() else os.devnull
-    with open(lock_path, "a+") as lock:
+    with open(state / "pick.lock", "a+") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
 
         now = time.time()
@@ -277,7 +263,6 @@ def main():
         # would otherwise find the name it just chose already spoken for.
         taken = live_names(sid) | {n for n, e in held.items()
                                    if not sid or reservation(e)[1] != sid}
-        taken |= TAKEN
         free = [n for n in pool if n not in taken]
 
         remembered = (projects.get(key) or {}).get("name")
@@ -314,7 +299,7 @@ def main():
             chosen, joins = area_pick(area, taken, pool, in_areas, spoken_for)
             if chosen is None:
                 return                             # nothing to hand out
-            if joins and not DRY_RUN:
+            if joins:
                 areas.grow(areas_file, area_name, chosen)
         elif remembered and remembered not in taken:
             chosen = remembered                    # this project's usual name, free
@@ -341,12 +326,11 @@ def main():
                 sessions[sid]["assigned"] = True
             save_map(sessions_file, sessions)
 
-        if not DRY_RUN:
-            held[chosen] = {"at": now, "sid": sid}
-            tmp = reservations.with_suffix(".tmp")
-            with tmp.open("w", encoding="utf-8") as fh:
-                json.dump(held, fh)
-            os.replace(tmp, reservations)
+        held[chosen] = {"at": now, "sid": sid}
+        tmp = reservations.with_suffix(".tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(held, fh)
+        os.replace(tmp, reservations)
 
     print(chosen)
 

@@ -9,11 +9,17 @@ Names set by hand with /rename (`nameSource: "user"`) are never touched.
 
 Background jobs are adopted too. Their label carries no nameSource, so the test
 for "already ours" is membership of the roster rather than that field.
+
+`--dry-run` is a real run on a throwaway copy of the peer files and the
+plugin's state, so its preview is what a real run would do -- names an earlier
+rename frees, a roster an earlier one grows -- and nothing of yours is written.
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -28,7 +34,7 @@ cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR", str(Path.home() / ".claude")))
 dry_run = "--dry-run" in sys.argv
 
 
-def pick(cwd, session_id="", proposed=()):
+def pick(cwd, session_id=""):
     """Choose a name for a session, keyed to the directory that session is in.
 
     Not to ours: adopting a batch of sessions from one terminal must still give
@@ -38,16 +44,12 @@ def pick(cwd, session_id="", proposed=()):
 
     Keyed to its id too, so a session adopted here answers to the same name
     afterwards rather than being re-picked the next time Claude Code relabels it.
-
-    A dry run picks without writing, so nothing reserves a proposed name: the
-    names proposed so far go along as taken instead.
     """
     env = dict(os.environ, CAN_CWD=cwd or os.getcwd(), CAN_SESSION=session_id)
-    args = ["--dry-run"] + [a for n in proposed for a in ("--taken", n)] if dry_run else []
     # CAN_NAME belongs to the shell this runs from, not to the sessions it adopts.
     env.pop("CAN_NAME", None)
     try:
-        out = subprocess.run([sys.executable, str(HERE / "pick_name.py"), *args], env=env,
+        out = subprocess.run([sys.executable, str(HERE / "pick_name.py")], env=env,
                              capture_output=True, text=True, timeout=8)
     except (OSError, subprocess.SubprocessError):
         return ""
@@ -66,10 +68,37 @@ def roster():
         return in_areas
 
 
+def sandbox():
+    """Point this run, and the pickers it starts, at a copy of the state."""
+    global cfg
+    tmp = Path(tempfile.mkdtemp(prefix="agent-names-dry-run-"))
+    for sub in ("sessions", "agent-names"):
+        if (cfg / sub).is_dir():
+            shutil.copytree(cfg / sub, tmp / sub)
+    (tmp / "sessions").mkdir(exist_ok=True)
+    areas_file = os.environ.get("CAN_AREAS")
+    if areas_file and Path(areas_file).is_file():
+        shutil.copy(areas_file, tmp / "areas-dry-run.json")
+        os.environ["CAN_AREAS"] = str(tmp / "areas-dry-run.json")
+    cfg = tmp
+    os.environ["CLAUDE_CONFIG_DIR"] = str(tmp)
+    return tmp
+
+
 def main():
+    if dry_run:
+        tmp = sandbox()
+        try:
+            adopt()
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    else:
+        adopt()
+
+
+def adopt():
     pool = roster()
     renamed = skipped = 0
-    proposed = []
     # Live sessions only: a peer file its session left behind has nobody to
     # answer to the name.
     for rec in registry.live(cfg):
@@ -86,13 +115,8 @@ def main():
             continue
 
         old = rec.get("name") or "?"
-        new = pick(rec.get("cwd") or "", rec.get("sessionId") or "", proposed)
+        new = pick(rec.get("cwd") or "", rec.get("sessionId") or "")
         if not new:
-            continue
-        if dry_run:
-            print(f"  would rename {old} -> {new}")
-            proposed.append(new)
-            renamed += 1
             continue
 
         try:
@@ -111,7 +135,7 @@ def main():
         except (OSError, ValueError):
             continue
         cwd = (fresh.get("cwd") or "").replace(str(Path.home()), "~")
-        print(f"  {old} -> {new}   ({cwd})")
+        print(f"  {'would rename ' if dry_run else ''}{old} -> {new}   ({cwd})")
         renamed += 1
 
     verb = "would rename" if dry_run else "renamed"

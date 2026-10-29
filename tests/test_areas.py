@@ -484,7 +484,7 @@ check("adopt_all --dry-run writes no state file",
       after == before, f"changed {sorted(n for n in set(after) | set(before) if after.get(n) != before.get(n))}")
 check("and no peer file",
       {p.name: p.read_bytes() for p in (lap.cfg / "sessions").iterdir()} == peers)
-proposed = [ln.split(" -> ")[1] for ln in dry.stdout.splitlines() if " -> " in ln]
+proposed = [ln.split(" -> ")[1].split()[0] for ln in dry.stdout.splitlines() if " -> " in ln]
 check("and still says what it would do, a different name for each session",
       sorted(proposed) == ["Ines", "Omar"], f"stdout {dry.stdout!r} {dry.stderr[:200]}")
 lap.close()
@@ -502,12 +502,32 @@ check("a dry run creates no agent-names directory",
       not (lap.cfg / "agent-names").exists())
 lap.close()
 
-# --dry-run is an argument: CAN_DRY_RUN left exported does nothing to a real pick.
-lap = Laptop(KLIUM)
-sid = lap.start(lap.path(WORKTREES[0]), env={"CAN_DRY_RUN": "1"})
-check("a session started with CAN_DRY_RUN=1 in its shell is still remembered",
-      lap.name(sid) == "Dmitri"
-      and sid in json.loads((lap.cfg / "agent-names" / "sessions.json").read_text()))
+
+# The preview is what the real run then does, even when an earlier rename in the
+# batch changes what a later one gets (Codex on #13): here klium's newcomer Ann
+# joins its roster, so the empty area has nothing left to hand out.
+def adopt(lap, *flags):
+    out = subprocess.run([sys.executable, str(ROOT / "scripts" / "adopt_all.py"), *flags],
+                         env=lap.env(), capture_output=True, text=True, timeout=30).stdout
+    return sorted(ln.replace("would rename", "").split("(")[0].strip()
+                  for ln in out.splitlines() if " -> " in ln)
+
+
+EMPTY = dict(KLIUM, empty={"paths": ["~/Projects/empty"], "roster": []})
+lap = Laptop(EMPTY)
+(lap.cfg / "agent-names" / "names.txt").write_text("Dmitri\nLeila\nTomas\nAnn\n")
+for w in WORKTREES:
+    lap.start(lap.path(w))
+late = [lap.start(lap.path(WORKTREES[0])), lap.start(lap.path("Projects/empty"))]
+lap.areas_file.write_text(json.dumps({"areas": EMPTY}, indent=1))
+for f in ("projects.json", "sessions.json", "reservations.json"):
+    (lap.cfg / "agent-names" / f).unlink(missing_ok=True)
+for sid in late:
+    lap.write(sid, f"derived-{sid}")
+preview = adopt(lap, "--dry-run")
+real = adopt(lap)
+check("a dry run previews exactly what the real run then does",
+      preview == real and real, f"preview {preview}, real {real}")
 lap.close()
 
 # --- "/" as an area path -------------------------------------------------------
