@@ -411,17 +411,29 @@ lap.close()
 TWO = dict(KLIUM, **{"tiroir": {"paths": ["~/Projects/tiroir"], "roster": ["Ann", "Bob"]}})
 lap = Laptop(TWO)
 (lap.cfg / "agent-names" / "names.txt").write_text("Dmitri\nLeila\nTomas\nAnn\nBob\n")
-sids = [lap.start(lap.path(w)) for w in WORKTREES]
+for w in WORKTREES:                                 # Dmitri, Leila, Tomas: A is spent
+    lap.start(lap.path(w))
 drawn = []
-for i in range(12):
+for _ in range(12):                                 # a random draw: 12 misses (3/5)^12
     sid = lap.start(lap.path(WORKTREES[0]))
     drawn.append(lap.name(sid))
     lap.stop(sid)
 check("a spent roster suffixes off its own names, not another area's",
-      all(n.rsplit("-", 1)[0] in KLIUM["thinkingtoo/klium"]["roster"] for n in drawn),
-      f"got {drawn}")
+      all("-" in n and n.rsplit("-", 1)[0] in KLIUM["thinkingtoo/klium"]["roster"]
+          for n in drawn), f"got {drawn}")
 check("and area B's roster is left as it was", lap.roster("tiroir") == ["Ann", "Bob"],
       f"got {lap.roster('tiroir')}")
+lap.close()
+
+# An area with an empty roster, the pool spent: its suffix comes off a name no
+# area holds, here the one a plain project took.
+lap = Laptop(dict(KLIUM, **{"empty": {"paths": ["~/Projects/empty"], "roster": []}}))
+(lap.cfg / "agent-names" / "names.txt").write_text("Dmitri\nLeila\nTomas\nAnn\n")
+plain = lap.start(lap.path("Projects/plain"))
+sid = lap.start(lap.path("Projects/empty"))
+check("an empty roster suffixes off a name no area holds",
+      lap.name(plain) == "Ann" and lap.name(sid) == "Ann-2",
+      f"got {lap.name(plain)!r}, {lap.name(sid)!r}")
 lap.close()
 
 # --- no areas.json: nothing changes -----------------------------------------
