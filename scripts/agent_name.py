@@ -12,6 +12,12 @@ remembered in `sessions.json` with `assigned: true`, which is what keeps it:
 the hook leaves a session alone while it carries its assigned name, and hands
 the name back when the session resumes.
 
+To start a new session under a name -- a restart of a worker that peers know
+by name -- choose its id first: `agent-name set ID NAME`, then
+`claude --session-id ID`. The hook names it that at SessionStart. Setting the
+name after the session started works too, but the session has by then been
+told another name; the hook tells it the new one on its next prompt.
+
 A name you set yourself with /rename (`nameSource: "user"`) is never
 overwritten; `set` prints the name in effect either way.
 
@@ -107,6 +113,28 @@ def get_name(session_id, cfg=None, proc="/proc"):
         return rec["name"]
     entry = _load(state_dir(cfg) / "sessions.json").get(session_id)
     return (entry or {}).get("name") or "" if isinstance(entry, dict) else ""
+
+
+def told(session_id, cfg=None):
+    """The name the hook last told this session it has, or None."""
+    entry = _load(state_dir(cfg) / "sessions.json").get(session_id)
+    return entry.get("told") if isinstance(entry, dict) else None
+
+
+def mark_told(session_id, name, cfg=None):
+    """Record that the session has been told its name.
+
+    `set` replaces the entry and so drops this, which is what makes the hook
+    tell the session its new name on the next prompt.
+    """
+    def mark(sessions):
+        entry = sessions.get(session_id)
+        if not isinstance(entry, dict):
+            entry = sessions[session_id] = {"last_used": int(time.time())}
+        if entry.get("told") == name:
+            return False
+        entry["told"] = name
+    _locked(cfg, mark)
 
 
 def forget(session_id, cfg=None):

@@ -119,8 +119,12 @@ def replaceable(rec, pool, assigned=None, fixed=""):
         return False
     if fixed:
         return rec.get("name") != fixed   # CAN_NAME: any other name gives way
-    if assigned and rec.get("name") == assigned:
-        return False              # given to it by the boss or a restore, on purpose
+    if assigned:
+        # Given to it by the boss or a restore, on purpose: any other name that
+        # is not the person's gives way, a roster name the shell wrapper chose
+        # included. If another live session holds it the picker names this one
+        # otherwise and drops the assignment, so this cannot repeat.
+        return rec.get("name") != assigned
     if source in MACHINE:
         return True
     # A suffix (`Leila-2`) is ours when its base is: more sessions than names.
@@ -129,12 +133,12 @@ def replaceable(rec, pool, assigned=None, fixed=""):
     return name not in pool and not (n.isdigit() and root in pool)
 
 
-def write_name(path, name, pool, fixed=""):
+def write_name(path, name, pool, fixed="", assigned=None):
     """Replace the name in place, atomically -- never a half-written peer file."""
     try:
         with path.open(encoding="utf-8") as fh:
             fresh = json.load(fh)
-        if not replaceable(fresh, pool, fixed=fixed):
+        if not replaceable(fresh, pool, assigned, fixed):
             return False          # someone named it while we were choosing
         fresh["name"] = name
         fresh.pop("nameSource", None)
@@ -191,25 +195,34 @@ def main():
     pool = roster()
     # CAN_NAME in the session's environment fixes its name, like an assigned one.
     fixed = (os.environ.get("CAN_NAME") or "").strip()
-    if not replaceable(rec, pool, agent_name.assigned(session_id, CFG), fixed):
-        # Already named -- by /rename, by us on an earlier start, or by us on an
-        # earlier prompt. Tell the session what it is called only at the start of
-        # a session; repeating it on every prompt would be noise.
+    assigned = agent_name.assigned(session_id, CFG)
+    if not replaceable(rec, pool, assigned, fixed):
+        # Already named -- by /rename, by us on an earlier start, by us on an
+        # earlier prompt, or from outside with `agent-name set`. Tell the session
+        # what it is called at its start; repeating it on every prompt would be
+        # noise. The exception is a name assigned from outside that the session
+        # has not heard yet: the boss names a worker seconds after SessionStart,
+        # and a session never told answers peers under a name nobody uses.
         existing = rec.get("name") or ""
-        if existing and event == "SessionStart":
-            emit(existing)
+        new_to_it = existing == assigned and agent_name.told(session_id, CFG) != existing
+        if existing and (event == "SessionStart" or new_to_it):
+            emit(existing, event)
+            if existing == assigned:
+                agent_name.mark_told(session_id, existing, CFG)
         return
 
     name = pick(rec.get("cwd") or payload.get("cwd") or "", session_id)
     if not name:
         return
-    if write_name(path, name, pool, fixed):
+    if write_name(path, name, pool, fixed, assigned):
         # The peer file now says the name is taken, so the reservation that
         # covered the gap has nothing left to cover. Dropping it here is what
         # keeps a short-lived session from locking its project out of its own
         # name on the next launch.
         release(name)
         emit(name, event)
+        if name == assigned:
+            agent_name.mark_told(session_id, name, CFG)
 
 
 if __name__ == "__main__":
