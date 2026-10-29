@@ -30,10 +30,11 @@ A path covered by a work area (`areas.json`, see areas.py) is named from the
 area's roster instead, and never touches projects.json. `CAN_NAME` in the
 environment overrides everything but the person's own /rename.
 
-`CAN_DRY_RUN=1` chooses as usual and writes nothing: no roster grows, no
-preference or reservation is recorded. `CAN_TAKEN`, a comma-separated list,
-counts names as taken, so a dry run over several sessions can say which names
-it has already proposed.
+`--dry-run` chooses as usual and writes nothing: no roster grows, no
+preference or reservation is recorded. Each `--taken NAME` counts a name as
+taken, so a dry run over several sessions can say which names it has already
+proposed. Both are arguments, not environment, so a variable left exported in
+a shell can never turn a session's real pick into a dry one.
 """
 import fcntl
 import json
@@ -64,7 +65,8 @@ state = cfg / "agent-names"
 names_file = Path(os.environ.get("CAN_NAMES") or (state / "names.txt"))
 if not names_file.is_file():
     names_file = Path(__file__).resolve().parent.parent / "data" / "names.txt"
-DRY_RUN = os.environ.get("CAN_DRY_RUN") == "1"
+DRY_RUN = "--dry-run" in sys.argv[1:]
+TAKEN = {sys.argv[i + 1] for i, a in enumerate(sys.argv[1:-1], 1) if a == "--taken"}
 
 
 def reservation(entry):
@@ -226,10 +228,14 @@ def main():
 
     pool = load_pool()
 
-    state.mkdir(parents=True, exist_ok=True)
+    if not (DRY_RUN and not state.is_dir()):
+        state.mkdir(parents=True, exist_ok=True)
     reservations = state / "reservations.json"
 
-    with open(state / "pick.lock", "a+") as lock:
+    # A dry run on a machine with no state yet has nothing to lock, and must
+    # not create the directory to lock it.
+    lock_path = state / "pick.lock" if state.is_dir() else os.devnull
+    with open(lock_path, "a+") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
 
         now = time.time()
@@ -271,7 +277,7 @@ def main():
         # would otherwise find the name it just chose already spoken for.
         taken = live_names(sid) | {n for n, e in held.items()
                                    if not sid or reservation(e)[1] != sid}
-        taken |= {n.strip() for n in (os.environ.get("CAN_TAKEN") or "").split(",") if n.strip()}
+        taken |= TAKEN
         free = [n for n in pool if n not in taken]
 
         remembered = (projects.get(key) or {}).get("name")

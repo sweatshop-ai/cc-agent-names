@@ -43,12 +43,11 @@ def pick(cwd, session_id="", proposed=()):
     names proposed so far go along as taken instead.
     """
     env = dict(os.environ, CAN_CWD=cwd or os.getcwd(), CAN_SESSION=session_id)
-    if dry_run:
-        env.update(CAN_DRY_RUN="1", CAN_TAKEN=",".join(proposed))
+    args = ["--dry-run"] + [a for n in proposed for a in ("--taken", n)] if dry_run else []
     # CAN_NAME belongs to the shell this runs from, not to the sessions it adopts.
     env.pop("CAN_NAME", None)
     try:
-        out = subprocess.run([sys.executable, str(HERE / "pick_name.py")], env=env,
+        out = subprocess.run([sys.executable, str(HERE / "pick_name.py"), *args], env=env,
                              capture_output=True, text=True, timeout=8)
     except (OSError, subprocess.SubprocessError):
         return ""

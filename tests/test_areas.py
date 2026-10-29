@@ -464,7 +464,11 @@ lap = Laptop(KLIUM)
 for w in WORKTREES:                                 # Dmitri, Leila, Tomas: the roster is spent
     lap.start(lap.path(w))
 waiting = [lap.start(lap.path(WORKTREES[0])), lap.start(lap.path(WORKTREES[1]))]
-lap.areas_file.write_text(json.dumps({"areas": KLIUM}, indent=1))
+# Two free roster names: a picker that forgets what it proposed gives both
+# sessions the first one, every time.
+WAITING = {"thinkingtoo/klium": dict(KLIUM["thinkingtoo/klium"],
+                                     roster=KLIUM["thinkingtoo/klium"]["roster"] + ["Ines", "Omar"])}
+lap.areas_file.write_text(json.dumps({"areas": WAITING}, indent=1))
 for f in ("projects.json", "sessions.json", "reservations.json"):
     (lap.cfg / "agent-names" / f).unlink(missing_ok=True)
 for sid in waiting:
@@ -482,7 +486,28 @@ check("and no peer file",
       {p.name: p.read_bytes() for p in (lap.cfg / "sessions").iterdir()} == peers)
 proposed = [ln.split(" -> ")[1] for ln in dry.stdout.splitlines() if " -> " in ln]
 check("and still says what it would do, a different name for each session",
-      len(proposed) == 2 and len(set(proposed)) == 2, f"stdout {dry.stdout!r} {dry.stderr[:200]}")
+      sorted(proposed) == ["Ines", "Omar"], f"stdout {dry.stdout!r} {dry.stderr[:200]}")
+lap.close()
+
+# A dry run on a machine with no agent-names directory yet does not create it.
+lap = Laptop(KLIUM)
+sid = lap.start(lap.path(WORKTREES[0]))
+lap.write(sid, "derived-again")
+for p in (lap.cfg / "agent-names").iterdir():
+    p.unlink()
+(lap.cfg / "agent-names").rmdir()
+subprocess.run([sys.executable, str(ROOT / "scripts" / "adopt_all.py"), "--dry-run"],
+               env=lap.env(), capture_output=True, text=True, timeout=30)
+check("a dry run creates no agent-names directory",
+      not (lap.cfg / "agent-names").exists())
+lap.close()
+
+# --dry-run is an argument: CAN_DRY_RUN left exported does nothing to a real pick.
+lap = Laptop(KLIUM)
+sid = lap.start(lap.path(WORKTREES[0]), env={"CAN_DRY_RUN": "1"})
+check("a session started with CAN_DRY_RUN=1 in its shell is still remembered",
+      lap.name(sid) == "Dmitri"
+      and sid in json.loads((lap.cfg / "agent-names" / "sessions.json").read_text()))
 lap.close()
 
 # --- "/" as an area path -------------------------------------------------------
