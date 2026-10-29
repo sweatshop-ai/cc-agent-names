@@ -119,8 +119,12 @@ def replaceable(rec, pool, assigned=None, fixed=""):
         return False
     if fixed:
         return rec.get("name") != fixed   # CAN_NAME: any other name gives way
-    if assigned and rec.get("name") == assigned:
-        return False              # given to it by the boss or a restore, on purpose
+    if assigned:
+        # Given to it by the boss or a restore, on purpose: any other name that
+        # is not the person's gives way, a roster name the shell wrapper chose
+        # included. If another live session holds it the picker names this one
+        # otherwise and drops the assignment, so this cannot repeat.
+        return rec.get("name") != assigned
     if source in MACHINE:
         return True
     # A suffix (`Leila-2`) is ours when its base is: more sessions than names.
@@ -129,12 +133,12 @@ def replaceable(rec, pool, assigned=None, fixed=""):
     return name not in pool and not (n.isdigit() and root in pool)
 
 
-def write_name(path, name, pool, fixed=""):
+def write_name(path, name, pool, fixed="", assigned=None):
     """Replace the name in place, atomically -- never a half-written peer file."""
     try:
         with path.open(encoding="utf-8") as fh:
             fresh = json.load(fh)
-        if not replaceable(fresh, pool, fixed=fixed):
+        if not replaceable(fresh, pool, assigned, fixed):
             return False          # someone named it while we were choosing
         fresh["name"] = name
         fresh.pop("nameSource", None)
@@ -210,7 +214,7 @@ def main():
     name = pick(rec.get("cwd") or payload.get("cwd") or "", session_id)
     if not name:
         return
-    if write_name(path, name, pool, fixed):
+    if write_name(path, name, pool, fixed, assigned):
         # The peer file now says the name is taken, so the reservation that
         # covered the gap has nothing left to cover. Dropping it here is what
         # keeps a short-lived session from locking its project out of its own

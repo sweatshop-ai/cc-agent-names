@@ -139,6 +139,17 @@ for assigned in ("reviewer-1", "Marek"):                      # off the roster, 
           life.fire("s-3", "UserPromptSubmit") == "" and life.fire("s-3", "UserPromptSubmit") == "")
     life.close()
 
+# The shell wrapper (SHELL_RC=1) starts claude under a roster name of its own,
+# with no machine nameSource. A name set for that id beforehand still wins.
+life = Life()
+life.agent_name("set", "s-wrapped", "reviewer-1")
+life.start("w", "s-wrapped", name="Lennart", source=None)
+told = life.fire("s-wrapped", "SessionStart")
+check("a pre-set name beats the shell wrapper's roster name",
+      life.name("w") == "reviewer-1" and "is reviewer-1." in told,
+      f"named {life.name('w')!r}, told {told[:120]!r}")
+life.close()
+
 # --- a session is told when its name is changed from outside (#5) -------------
 
 life = Life()
