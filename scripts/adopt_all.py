@@ -9,11 +9,17 @@ Names set by hand with /rename (`nameSource: "user"`) are never touched.
 
 Background jobs are adopted too. Their label carries no nameSource, so the test
 for "already ours" is membership of the roster rather than that field.
+
+`--dry-run` is a real run on a throwaway copy of the peer files and the
+plugin's state, so its preview is what a real run would do -- names an earlier
+rename frees, a roster an earlier one grows -- and nothing of yours is written.
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -62,7 +68,39 @@ def roster():
         return in_areas
 
 
+def sandbox(tmp):
+    """Point this run, and the pickers it starts, at a copy of the state in tmp.
+
+    The plugin's vendored packages and cache are no state, may hold dangling
+    symlinks, and are left out.
+    """
+    global cfg
+    skip = shutil.ignore_patterns("vendor", "cache", "*.lock")
+    for sub in ("sessions", "agent-names"):
+        if (cfg / sub).is_dir():
+            shutil.copytree(cfg / sub, tmp / sub, ignore=skip, symlinks=True)
+    (tmp / "sessions").mkdir(exist_ok=True)
+    areas_file = os.environ.get("CAN_AREAS")
+    if areas_file and Path(areas_file).is_file():
+        shutil.copy(areas_file, tmp / "areas-dry-run.json")
+        os.environ["CAN_AREAS"] = str(tmp / "areas-dry-run.json")
+    cfg = tmp
+    os.environ["CLAUDE_CONFIG_DIR"] = str(tmp)
+
+
 def main():
+    if dry_run:
+        tmp = Path(tempfile.mkdtemp(prefix="agent-names-dry-run-"))
+        try:
+            sandbox(tmp)
+            adopt()
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    else:
+        adopt()
+
+
+def adopt():
     pool = roster()
     renamed = skipped = 0
     # Live sessions only: a peer file its session left behind has nobody to
@@ -84,10 +122,6 @@ def main():
         new = pick(rec.get("cwd") or "", rec.get("sessionId") or "")
         if not new:
             continue
-        if dry_run:
-            print(f"  would rename {old} -> {new}")
-            renamed += 1
-            continue
 
         try:
             with path.open(encoding="utf-8") as fh:
@@ -105,7 +139,7 @@ def main():
         except (OSError, ValueError):
             continue
         cwd = (fresh.get("cwd") or "").replace(str(Path.home()), "~")
-        print(f"  {old} -> {new}   ({cwd})")
+        print(f"  {'would rename ' if dry_run else ''}{old} -> {new}   ({cwd})")
         renamed += 1
 
     verb = "would rename" if dry_run else "renamed"

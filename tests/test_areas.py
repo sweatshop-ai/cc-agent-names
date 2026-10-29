@@ -455,6 +455,115 @@ check("and with no such name it hands out none rather than borrow klium's",
       lap.name(sid) == "some-derived-label", f"got {lap.name(sid)!r}")
 lap.close()
 
+# --- adopt_all --dry-run writes nothing ---------------------------------------
+#
+# The picker grows areas.json and writes projects.json, sessions.json and
+# reservations.json. A dry run only says what it would do.
+
+lap = Laptop(KLIUM)
+for w in WORKTREES:                                 # Dmitri, Leila, Tomas: the roster is spent
+    lap.start(lap.path(w))
+waiting = [lap.start(lap.path(WORKTREES[0])), lap.start(lap.path(WORKTREES[1]))]
+# Two free roster names: a picker that forgets what it proposed gives both
+# sessions the first one, every time.
+WAITING = {"thinkingtoo/klium": dict(KLIUM["thinkingtoo/klium"],
+                                     roster=KLIUM["thinkingtoo/klium"]["roster"] + ["Ines", "Omar"])}
+lap.areas_file.write_text(json.dumps({"areas": WAITING}, indent=1))
+for f in ("projects.json", "sessions.json", "reservations.json"):
+    (lap.cfg / "agent-names" / f).unlink(missing_ok=True)
+for sid in waiting:
+    lap.write(sid, f"derived-{sid}")
+before = {p.name: p.read_bytes() for p in (lap.cfg / "agent-names").iterdir()
+          if p.suffix != ".lock"}
+peers = {p.name: p.read_bytes() for p in (lap.cfg / "sessions").iterdir()}
+dry = subprocess.run([sys.executable, str(ROOT / "scripts" / "adopt_all.py"), "--dry-run"],
+                     env=lap.env(), capture_output=True, text=True, timeout=30)
+after = {p.name: p.read_bytes() for p in (lap.cfg / "agent-names").iterdir()
+         if p.suffix != ".lock"}
+check("adopt_all --dry-run writes no state file",
+      after == before, f"changed {sorted(n for n in set(after) | set(before) if after.get(n) != before.get(n))}")
+check("and no peer file",
+      {p.name: p.read_bytes() for p in (lap.cfg / "sessions").iterdir()} == peers)
+proposed = [ln.split(" -> ")[1].split()[0] for ln in dry.stdout.splitlines() if " -> " in ln]
+check("and still says what it would do, a different name for each session",
+      sorted(proposed) == ["Ines", "Omar"], f"stdout {dry.stdout!r} {dry.stderr[:200]}")
+lap.close()
+
+# A dry run on a machine with no agent-names directory yet does not create it.
+lap = Laptop(KLIUM)
+sid = lap.start(lap.path(WORKTREES[0]))
+lap.write(sid, "derived-again")
+for p in (lap.cfg / "agent-names").iterdir():
+    p.unlink()
+(lap.cfg / "agent-names").rmdir()
+subprocess.run([sys.executable, str(ROOT / "scripts" / "adopt_all.py"), "--dry-run"],
+               env=lap.env(), capture_output=True, text=True, timeout=30)
+check("a dry run creates no agent-names directory",
+      not (lap.cfg / "agent-names").exists())
+lap.close()
+
+
+# The preview is what the real run then does, even when an earlier rename in the
+# batch changes what a later one gets (Codex on #13): here klium's newcomer Ann
+# joins its roster, so the empty area has nothing left to hand out.
+def adopt(lap, *flags):
+    out = subprocess.run([sys.executable, str(ROOT / "scripts" / "adopt_all.py"), *flags],
+                         env=lap.env(), capture_output=True, text=True, timeout=30).stdout
+    return sorted(ln.replace("would rename", "").split("(")[0].strip()
+                  for ln in out.splitlines() if " -> " in ln)
+
+
+EMPTY = dict(KLIUM, empty={"paths": ["~/Projects/empty"], "roster": []})
+lap = Laptop(EMPTY)
+(lap.cfg / "agent-names" / "names.txt").write_text("Dmitri\nLeila\nTomas\nAnn\n")
+for w in WORKTREES:
+    lap.start(lap.path(w))
+late = [lap.start(lap.path(WORKTREES[0])), lap.start(lap.path("Projects/empty"))]
+lap.areas_file.write_text(json.dumps({"areas": EMPTY}, indent=1))
+for f in ("projects.json", "sessions.json", "reservations.json"):
+    (lap.cfg / "agent-names" / f).unlink(missing_ok=True)
+for sid in late:
+    lap.write(sid, f"derived-{sid}")
+preview = adopt(lap, "--dry-run")
+real = adopt(lap)
+check("a dry run previews exactly what the real run then does",
+      preview == real and real, f"preview {preview}, real {real}")
+lap.close()
+
+# An areas.json elsewhere (CAN_AREAS) is copied too, and a dangling symlink in
+# the state directory does not stop the preview.
+lap = Laptop()
+outside = lap.cfg / "elsewhere-areas.json"
+outside.write_text(json.dumps({"areas": KLIUM}, indent=1))
+for w in WORKTREES:
+    lap.start(lap.path(w), env={"CAN_AREAS": str(outside)})
+sid = lap.start(lap.path(WORKTREES[0]), env={"CAN_AREAS": str(outside)})
+outside.write_text(json.dumps({"areas": KLIUM}, indent=1))     # spent again: a pick grows it
+for f in ("projects.json", "sessions.json", "reservations.json"):
+    (lap.cfg / "agent-names" / f).unlink(missing_ok=True)
+lap.write(sid, "derived-late")
+(lap.cfg / "agent-names" / "vendor").mkdir()
+(lap.cfg / "agent-names" / "vendor" / "gone").symlink_to(lap.cfg / "nowhere")
+before = outside.read_bytes()
+dry = subprocess.run([sys.executable, str(ROOT / "scripts" / "adopt_all.py"), "--dry-run"],
+                     env=lap.env({"CAN_AREAS": str(outside)}), capture_output=True, text=True,
+                     timeout=30)
+check("a dry run leaves an areas.json named by CAN_AREAS as it was",
+      outside.read_bytes() == before and "would rename derived-late" in dry.stdout,
+      f"stdout {dry.stdout!r} stderr {dry.stderr[-300:]!r}")
+lap.close()
+
+# --- "/" as an area path -------------------------------------------------------
+
+lap = Laptop(dict(KLIUM, everything={"paths": ["/"], "roster": ["Rhea"]}))
+anywhere = lap.start(lap.path("Projects/elsewhere"))
+klium = lap.start(lap.path(WORKTREES[0]))
+check("an area on / covers every path",
+      lap.name(anywhere) == "Rhea", f"got {lap.name(anywhere)!r}")
+check("and any deeper area still beats it",
+      lap.name(klium) == "Dmitri", f"got {lap.name(klium)!r}")
+lap.close()
+
 # --- no areas.json: nothing changes -----------------------------------------
 
 lap = Laptop()
