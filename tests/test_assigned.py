@@ -149,6 +149,10 @@ told = life.fire("s-w", "UserPromptSubmit")
 check("the next prompt tells the session its new name",
       "is reviewer-1." in told, repr(told[:200]))
 check("and only once", life.fire("s-w", "UserPromptSubmit") == "")
+# The statusline re-picks on its own schedule; that rewrites the entry.
+subprocess.run([sys.executable, str(ROOT / "scripts" / "pick_name.py")], capture_output=True,
+               env=dict(life.env, CAN_CWD=life.cwd, CAN_SESSION="s-w"), timeout=30)
+check("and not again after a re-pick", life.fire("s-w", "UserPromptSubmit") == "")
 life.close()
 
 # --- a name you chose yourself wins -------------------------------------------
