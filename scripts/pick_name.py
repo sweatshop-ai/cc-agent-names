@@ -322,6 +322,8 @@ def main():
 
         if sid:
             sessions[sid] = {"name": chosen, "last_used": int(now)}
+            if entry.get("told"):
+                sessions[sid]["told"] = entry["told"]   # what the hook last said
             if chosen == mine and entry.get("assigned"):
                 sessions[sid]["assigned"] = True
             save_map(sessions_file, sessions)

@@ -191,13 +191,20 @@ def main():
     pool = roster()
     # CAN_NAME in the session's environment fixes its name, like an assigned one.
     fixed = (os.environ.get("CAN_NAME") or "").strip()
-    if not replaceable(rec, pool, agent_name.assigned(session_id, CFG), fixed):
-        # Already named -- by /rename, by us on an earlier start, or by us on an
-        # earlier prompt. Tell the session what it is called only at the start of
-        # a session; repeating it on every prompt would be noise.
+    assigned = agent_name.assigned(session_id, CFG)
+    if not replaceable(rec, pool, assigned, fixed):
+        # Already named -- by /rename, by us on an earlier start, by us on an
+        # earlier prompt, or from outside with `agent-name set`. Tell the session
+        # what it is called at its start; repeating it on every prompt would be
+        # noise. The exception is a name assigned from outside that the session
+        # has not heard yet: the boss names a worker seconds after SessionStart,
+        # and a session never told answers peers under a name nobody uses.
         existing = rec.get("name") or ""
-        if existing and event == "SessionStart":
-            emit(existing)
+        new_to_it = existing == assigned and agent_name.told(session_id, CFG) != existing
+        if existing and (event == "SessionStart" or new_to_it):
+            emit(existing, event)
+            if existing == assigned:
+                agent_name.mark_told(session_id, existing, CFG)
         return
 
     name = pick(rec.get("cwd") or payload.get("cwd") or "", session_id)
@@ -210,6 +217,8 @@ def main():
         # name on the next launch.
         release(name)
         emit(name, event)
+        if name == assigned:
+            agent_name.mark_told(session_id, name, CFG)
 
 
 if __name__ == "__main__":

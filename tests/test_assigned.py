@@ -63,10 +63,11 @@ class Life:
         return json.loads(self.path(key).read_text()).get("name")
 
     def fire(self, sid, event):
-        subprocess.run([sys.executable, str(HOOK)], env=self.env, capture_output=True,
+        """Run the hook for this session; returns what it printed."""
+        return subprocess.run([sys.executable, str(HOOK)], env=self.env, capture_output=True,
                        text=True, timeout=30,
                        input=json.dumps({"session_id": sid, "hook_event_name": event,
-                                         "cwd": self.cwd}))
+                                         "cwd": self.cwd})).stdout
 
     def agent_name(self, *args):
         return subprocess.run([str(AGENT_NAME), *args], env=self.env, capture_output=True,
@@ -108,6 +109,47 @@ for assigned in ("reviewer-1", "Marek"):                      # off the roster, 
     check(f"an assigned name ({assigned}) comes back on resume, not the first pick",
           life.name("w2") == assigned, f"first {first!r}, resumed as {life.name('w2')!r}")
     life.close()
+
+# --- a restart under a new session id keeps the pane's name (#5) -------------
+#
+# The boss restarts a worker in its worktree: a new process, a new session id.
+# Naming it after SessionStart is too late, the session has been told another
+# name. So the boss chooses the id, sets the name, then starts the session.
+
+for assigned in ("reviewer-1", "Marek"):                      # off the roster, and on it
+    life = Life()
+    life.start("w", "s-1")
+    life.fire("s-1", "SessionStart")
+    first = life.name("w")
+    life.agent_name("set", "s-1", assigned)
+    life.stop("w")                                            # the worker is restarted
+    life.agent_name("set", "s-2", assigned)                   # under an id chosen first
+    life.start("w2", "s-2")
+    told = life.fire("s-2", "SessionStart")
+    check(f"a restarted worker starts as {assigned} and is told so, not {first}",
+          life.name("w2") == assigned and f"is {assigned}." in told,
+          f"named {life.name('w2')!r}, told {told[:120]!r}")
+    check("and is not told again on its first prompt",
+          life.fire("s-2", "UserPromptSubmit") == "")
+    life.start("w3", "s-3")                                   # a session of its own beside it
+    life.fire("s-3", "SessionStart")
+    check(f"a session nobody named, alongside it, is not {assigned} too",
+          life.name("w3") not in (assigned, "derived-label"), repr(life.name("w3")))
+    check("and is not told its name on every prompt",
+          life.fire("s-3", "UserPromptSubmit") == "" and life.fire("s-3", "UserPromptSubmit") == "")
+    life.close()
+
+# --- a session is told when its name is changed from outside (#5) -------------
+
+life = Life()
+life.start("w", "s-w")
+life.fire("s-w", "SessionStart")
+life.agent_name("set", "s-w", "reviewer-1")
+told = life.fire("s-w", "UserPromptSubmit")
+check("the next prompt tells the session its new name",
+      "is reviewer-1." in told, repr(told[:200]))
+check("and only once", life.fire("s-w", "UserPromptSubmit") == "")
+life.close()
 
 # --- a name you chose yourself wins -------------------------------------------
 
