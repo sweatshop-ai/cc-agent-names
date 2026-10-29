@@ -29,6 +29,11 @@ own name rather than waiting for the first to exit.
 A path covered by a work area (`areas.json`, see areas.py) is named from the
 area's roster instead, and never touches projects.json. `CAN_NAME` in the
 environment overrides everything but the person's own /rename.
+
+`CAN_DRY_RUN=1` chooses as usual and writes nothing: no roster grows, no
+preference or reservation is recorded. `CAN_TAKEN`, a comma-separated list,
+counts names as taken, so a dry run over several sessions can say which names
+it has already proposed.
 """
 import fcntl
 import json
@@ -59,6 +64,7 @@ state = cfg / "agent-names"
 names_file = Path(os.environ.get("CAN_NAMES") or (state / "names.txt"))
 if not names_file.is_file():
     names_file = Path(__file__).resolve().parent.parent / "data" / "names.txt"
+DRY_RUN = os.environ.get("CAN_DRY_RUN") == "1"
 
 
 def reservation(entry):
@@ -118,6 +124,8 @@ def load_map(path):
 
 
 def save_map(path, data):
+    if DRY_RUN:
+        return
     tmp = path.with_suffix(".tmp")
     try:
         with tmp.open("w", encoding="utf-8") as fh:
@@ -263,6 +271,7 @@ def main():
         # would otherwise find the name it just chose already spoken for.
         taken = live_names(sid) | {n for n, e in held.items()
                                    if not sid or reservation(e)[1] != sid}
+        taken |= {n.strip() for n in (os.environ.get("CAN_TAKEN") or "").split(",") if n.strip()}
         free = [n for n in pool if n not in taken]
 
         remembered = (projects.get(key) or {}).get("name")
@@ -299,7 +308,7 @@ def main():
             chosen, joins = area_pick(area, taken, pool, in_areas, spoken_for)
             if chosen is None:
                 return                             # nothing to hand out
-            if joins:
+            if joins and not DRY_RUN:
                 areas.grow(areas_file, area_name, chosen)
         elif remembered and remembered not in taken:
             chosen = remembered                    # this project's usual name, free
@@ -326,11 +335,12 @@ def main():
                 sessions[sid]["assigned"] = True
             save_map(sessions_file, sessions)
 
-        held[chosen] = {"at": now, "sid": sid}
-        tmp = reservations.with_suffix(".tmp")
-        with tmp.open("w", encoding="utf-8") as fh:
-            json.dump(held, fh)
-        os.replace(tmp, reservations)
+        if not DRY_RUN:
+            held[chosen] = {"at": now, "sid": sid}
+            tmp = reservations.with_suffix(".tmp")
+            with tmp.open("w", encoding="utf-8") as fh:
+                json.dump(held, fh)
+            os.replace(tmp, reservations)
 
     print(chosen)
 

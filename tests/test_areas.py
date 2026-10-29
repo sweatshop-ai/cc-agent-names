@@ -455,6 +455,47 @@ check("and with no such name it hands out none rather than borrow klium's",
       lap.name(sid) == "some-derived-label", f"got {lap.name(sid)!r}")
 lap.close()
 
+# --- adopt_all --dry-run writes nothing ---------------------------------------
+#
+# The picker grows areas.json and writes projects.json, sessions.json and
+# reservations.json. A dry run only says what it would do.
+
+lap = Laptop(KLIUM)
+for w in WORKTREES:                                 # Dmitri, Leila, Tomas: the roster is spent
+    lap.start(lap.path(w))
+waiting = [lap.start(lap.path(WORKTREES[0])), lap.start(lap.path(WORKTREES[1]))]
+lap.areas_file.write_text(json.dumps({"areas": KLIUM}, indent=1))
+for f in ("projects.json", "sessions.json", "reservations.json"):
+    (lap.cfg / "agent-names" / f).unlink(missing_ok=True)
+for sid in waiting:
+    lap.write(sid, f"derived-{sid}")
+before = {p.name: p.read_bytes() for p in (lap.cfg / "agent-names").iterdir()
+          if p.suffix != ".lock"}
+peers = {p.name: p.read_bytes() for p in (lap.cfg / "sessions").iterdir()}
+dry = subprocess.run([sys.executable, str(ROOT / "scripts" / "adopt_all.py"), "--dry-run"],
+                     env=lap.env(), capture_output=True, text=True, timeout=30)
+after = {p.name: p.read_bytes() for p in (lap.cfg / "agent-names").iterdir()
+         if p.suffix != ".lock"}
+check("adopt_all --dry-run writes no state file",
+      after == before, f"changed {sorted(n for n in set(after) | set(before) if after.get(n) != before.get(n))}")
+check("and no peer file",
+      {p.name: p.read_bytes() for p in (lap.cfg / "sessions").iterdir()} == peers)
+proposed = [ln.split(" -> ")[1] for ln in dry.stdout.splitlines() if " -> " in ln]
+check("and still says what it would do, a different name for each session",
+      len(proposed) == 2 and len(set(proposed)) == 2, f"stdout {dry.stdout!r} {dry.stderr[:200]}")
+lap.close()
+
+# --- "/" as an area path -------------------------------------------------------
+
+lap = Laptop(dict(KLIUM, everything={"paths": ["/"], "roster": ["Rhea"]}))
+anywhere = lap.start(lap.path("Projects/elsewhere"))
+klium = lap.start(lap.path(WORKTREES[0]))
+check("an area on / covers every path",
+      lap.name(anywhere) == "Rhea", f"got {lap.name(anywhere)!r}")
+check("and any deeper area still beats it",
+      lap.name(klium) == "Dmitri", f"got {lap.name(klium)!r}")
+lap.close()
+
 # --- no areas.json: nothing changes -----------------------------------------
 
 lap = Laptop()

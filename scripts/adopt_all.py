@@ -28,7 +28,7 @@ cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR", str(Path.home() / ".claude")))
 dry_run = "--dry-run" in sys.argv
 
 
-def pick(cwd, session_id=""):
+def pick(cwd, session_id="", proposed=()):
     """Choose a name for a session, keyed to the directory that session is in.
 
     Not to ours: adopting a batch of sessions from one terminal must still give
@@ -38,8 +38,13 @@ def pick(cwd, session_id=""):
 
     Keyed to its id too, so a session adopted here answers to the same name
     afterwards rather than being re-picked the next time Claude Code relabels it.
+
+    A dry run picks without writing, so nothing reserves a proposed name: the
+    names proposed so far go along as taken instead.
     """
     env = dict(os.environ, CAN_CWD=cwd or os.getcwd(), CAN_SESSION=session_id)
+    if dry_run:
+        env.update(CAN_DRY_RUN="1", CAN_TAKEN=",".join(proposed))
     # CAN_NAME belongs to the shell this runs from, not to the sessions it adopts.
     env.pop("CAN_NAME", None)
     try:
@@ -65,6 +70,7 @@ def roster():
 def main():
     pool = roster()
     renamed = skipped = 0
+    proposed = []
     # Live sessions only: a peer file its session left behind has nobody to
     # answer to the name.
     for rec in registry.live(cfg):
@@ -81,11 +87,12 @@ def main():
             continue
 
         old = rec.get("name") or "?"
-        new = pick(rec.get("cwd") or "", rec.get("sessionId") or "")
+        new = pick(rec.get("cwd") or "", rec.get("sessionId") or "", proposed)
         if not new:
             continue
         if dry_run:
             print(f"  would rename {old} -> {new}")
+            proposed.append(new)
             renamed += 1
             continue
 
