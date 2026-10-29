@@ -436,6 +436,14 @@ check("an empty roster suffixes off a name no area holds",
       f"got {lap.name(plain)!r}, {lap.name(sid)!r}")
 lap.close()
 
+# Every pool name on some area's roster: the empty area has nothing to hand out.
+lap = Laptop(dict(KLIUM, **{"empty": {"paths": ["~/Projects/empty"], "roster": []}}))
+(lap.cfg / "agent-names" / "names.txt").write_text("Dmitri\nLeila\nTomas\n")
+sid = lap.start(lap.path("Projects/empty"))
+check("and with no such name it hands out none rather than borrow klium's",
+      lap.name(sid) == "some-derived-label", f"got {lap.name(sid)!r}")
+lap.close()
+
 # --- no areas.json: nothing changes -----------------------------------------
 
 lap = Laptop()
