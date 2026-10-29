@@ -62,21 +62,25 @@ def _parts(path):
 
 
 def _covers(pattern, cwd_parts):
-    """The number of components of a glob that covers cwd, or 0."""
+    """The number of components of a glob that covers cwd, or None.
+
+    `/` has no components and covers everything, so it matches with 0.
+    """
     pat = _parts(os.path.expanduser(pattern))
     if not os.path.isabs(os.path.expanduser(pattern)) or len(pat) > len(cwd_parts):
-        return 0
+        return None
     if all(fnmatch.fnmatchcase(c, p) for c, p in zip(cwd_parts, pat)):
         return len(pat)
-    return 0
+    return None
 
 
 def match(cwd, areas):
     """(name, area) of the deepest area covering cwd, or (None, None)."""
     cwd_parts = _parts(os.path.abspath(cwd))
-    best, depth = (None, None), 0
+    best, depth = (None, None), -1
     for name, area in areas.items():
-        d = max((_covers(p, cwd_parts) for p in area["paths"]), default=0)
+        d = max((c for c in (_covers(p, cwd_parts) for p in area["paths"]) if c is not None),
+                default=-1)
         if d > depth:
             best, depth = (name, area), d
     return best
