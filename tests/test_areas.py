@@ -436,6 +436,17 @@ check("an empty roster suffixes off a name no area holds",
       f"got {lap.name(plain)!r}, {lap.name(sid)!r}")
 lap.close()
 
+# A suffix-shaped name on another roster is that area's: the suffix skips it.
+lap = Laptop({"a": {"paths": ["~/Projects/a"], "roster": ["Ann"]},
+              "b": {"paths": ["~/Projects/b"], "roster": ["Ann-2"]}})
+(lap.cfg / "agent-names" / "names.txt").write_text("Ann\nAnn-2\n")
+first = lap.start(lap.path("Projects/a"))
+second = lap.start(lap.path("Projects/a"))
+check("a suffix skips a name another area's roster holds",
+      lap.name(first) == "Ann" and lap.name(second) == "Ann-3",
+      f"got {lap.name(first)!r}, {lap.name(second)!r}")
+lap.close()
+
 # Every pool name on some area's roster: the empty area has nothing to hand out.
 lap = Laptop(dict(KLIUM, **{"empty": {"paths": ["~/Projects/empty"], "roster": []}}))
 (lap.cfg / "agent-names" / "names.txt").write_text("Dmitri\nLeila\nTomas\n")

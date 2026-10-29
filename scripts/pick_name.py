@@ -207,7 +207,7 @@ def area_pick(area, taken, pool, in_areas, spoken_for):
     if not newcomers:
         # An empty roster (a malformed one reads as []) borrows no area's name.
         own = area["roster"] or [n for n in pool if n not in in_areas]
-        return (suffixed(own, taken) if own else None), False
+        return (suffixed(own, taken | in_areas) if own else None), False
     return random.choice([n for n in newcomers if n not in spoken_for] or newcomers), True
 
 
