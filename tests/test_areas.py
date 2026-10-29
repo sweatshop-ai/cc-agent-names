@@ -403,6 +403,27 @@ check("and projects.json is left as it was", store_file.read_bytes() == before)
 check("and no areas.json is written", not lap.areas_file.exists())
 lap.close()
 
+# --- a spent roster suffixes off its own names ------------------------------
+#
+# Every free pool name sits on some area's roster: the area-A session takes a
+# suffix of an A name, never of a name area B holds.
+
+TWO = dict(KLIUM, **{"tiroir": {"paths": ["~/Projects/tiroir"], "roster": ["Ann", "Bob"]}})
+lap = Laptop(TWO)
+(lap.cfg / "agent-names" / "names.txt").write_text("Dmitri\nLeila\nTomas\nAnn\nBob\n")
+sids = [lap.start(lap.path(w)) for w in WORKTREES]
+drawn = []
+for i in range(12):
+    sid = lap.start(lap.path(WORKTREES[0]))
+    drawn.append(lap.name(sid))
+    lap.stop(sid)
+check("a spent roster suffixes off its own names, not another area's",
+      all(n.rsplit("-", 1)[0] in KLIUM["thinkingtoo/klium"]["roster"] for n in drawn),
+      f"got {drawn}")
+check("and area B's roster is left as it was", lap.roster("tiroir") == ["Ann", "Bob"],
+      f"got {lap.roster('tiroir')}")
+lap.close()
+
 # --- no areas.json: nothing changes -----------------------------------------
 
 lap = Laptop()

@@ -197,14 +197,14 @@ def area_pick(area, taken, pool, in_areas, spoken_for):
     A newcomer comes when the roster is spent, and joins it for good. It is a
     name no area holds, so a person works on one area only; a name no other
     project is known by is preferred. Only an exhausted pool falls back on a
-    suffix, which never joins a roster.
+    suffix of the area's own names, which never joins a roster.
     """
     for name in area["roster"]:
         if name not in taken:
             return name, False
     newcomers = [n for n in pool if n not in taken and n not in in_areas]
     if not newcomers:
-        return suffixed(pool or area["roster"], taken), False
+        return suffixed(area["roster"] or pool, taken), False
     return random.choice([n for n in newcomers if n not in spoken_for] or newcomers), True
 
 
