@@ -197,14 +197,17 @@ def area_pick(area, taken, pool, in_areas, spoken_for):
     A newcomer comes when the roster is spent, and joins it for good. It is a
     name no area holds, so a person works on one area only; a name no other
     project is known by is preferred. Only an exhausted pool falls back on a
-    suffix, which never joins a roster.
+    suffix of the area's own names, which never joins a roster. An empty roster
+    with every pool name on some area's has nothing to hand out: (None, False).
     """
     for name in area["roster"]:
         if name not in taken:
             return name, False
     newcomers = [n for n in pool if n not in taken and n not in in_areas]
     if not newcomers:
-        return suffixed(pool or area["roster"], taken), False
+        # An empty roster (a malformed one reads as []) borrows no area's name.
+        own = area["roster"] or [n for n in pool if n not in in_areas]
+        return (suffixed(own, taken | in_areas) if own else None), False
     return random.choice([n for n in newcomers if n not in spoken_for] or newcomers), True
 
 
@@ -294,6 +297,8 @@ def main():
             chosen = mine                          # this session's own name, free
         elif area is not None:
             chosen, joins = area_pick(area, taken, pool, in_areas, spoken_for)
+            if chosen is None:
+                return                             # nothing to hand out
             if joins:
                 areas.grow(areas_file, area_name, chosen)
         elif remembered and remembered not in taken:

@@ -403,6 +403,58 @@ check("and projects.json is left as it was", store_file.read_bytes() == before)
 check("and no areas.json is written", not lap.areas_file.exists())
 lap.close()
 
+# --- a spent roster suffixes off its own names ------------------------------
+#
+# Every free pool name sits on some area's roster: the area-A session takes a
+# suffix of an A name, never of a name area B holds.
+
+TWO = dict(KLIUM, **{"tiroir": {"paths": ["~/Projects/tiroir"], "roster": ["Ann", "Bob"]}})
+lap = Laptop(TWO)
+(lap.cfg / "agent-names" / "names.txt").write_text("Dmitri\nLeila\nTomas\nAnn\nBob\n")
+for w in WORKTREES:                                 # Dmitri, Leila, Tomas: A is spent
+    lap.start(lap.path(w))
+drawn = []
+for _ in range(12):                                 # a random draw: 12 misses (3/5)^12
+    sid = lap.start(lap.path(WORKTREES[0]))
+    drawn.append(lap.name(sid))
+    lap.stop(sid)
+check("a spent roster suffixes off its own names, not another area's",
+      all("-" in n and n.rsplit("-", 1)[0] in KLIUM["thinkingtoo/klium"]["roster"]
+          for n in drawn), f"got {drawn}")
+check("and area B's roster is left as it was", lap.roster("tiroir") == ["Ann", "Bob"],
+      f"got {lap.roster('tiroir')}")
+lap.close()
+
+# An area with an empty roster, the pool spent: its suffix comes off a name no
+# area holds, here the one a plain project took.
+lap = Laptop(dict(KLIUM, **{"empty": {"paths": ["~/Projects/empty"], "roster": []}}))
+(lap.cfg / "agent-names" / "names.txt").write_text("Dmitri\nLeila\nTomas\nAnn\n")
+plain = lap.start(lap.path("Projects/plain"))
+sid = lap.start(lap.path("Projects/empty"))
+check("an empty roster suffixes off a name no area holds",
+      lap.name(plain) == "Ann" and lap.name(sid) == "Ann-2",
+      f"got {lap.name(plain)!r}, {lap.name(sid)!r}")
+lap.close()
+
+# A suffix-shaped name on another roster is that area's: the suffix skips it.
+lap = Laptop({"a": {"paths": ["~/Projects/a"], "roster": ["Ann"]},
+              "b": {"paths": ["~/Projects/b"], "roster": ["Ann-2"]}})
+(lap.cfg / "agent-names" / "names.txt").write_text("Ann\nAnn-2\n")
+first = lap.start(lap.path("Projects/a"))
+second = lap.start(lap.path("Projects/a"))
+check("a suffix skips a name another area's roster holds",
+      lap.name(first) == "Ann" and lap.name(second) == "Ann-3",
+      f"got {lap.name(first)!r}, {lap.name(second)!r}")
+lap.close()
+
+# Every pool name on some area's roster: the empty area has nothing to hand out.
+lap = Laptop(dict(KLIUM, **{"empty": {"paths": ["~/Projects/empty"], "roster": []}}))
+(lap.cfg / "agent-names" / "names.txt").write_text("Dmitri\nLeila\nTomas\n")
+sid = lap.start(lap.path("Projects/empty"))
+check("and with no such name it hands out none rather than borrow klium's",
+      lap.name(sid) == "some-derived-label", f"got {lap.name(sid)!r}")
+lap.close()
+
 # --- no areas.json: nothing changes -----------------------------------------
 
 lap = Laptop()
