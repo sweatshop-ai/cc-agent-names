@@ -68,13 +68,17 @@ def roster():
         return in_areas
 
 
-def sandbox():
-    """Point this run, and the pickers it starts, at a copy of the state."""
+def sandbox(tmp):
+    """Point this run, and the pickers it starts, at a copy of the state in tmp.
+
+    The plugin's vendored packages and cache are no state, may hold dangling
+    symlinks, and are left out.
+    """
     global cfg
-    tmp = Path(tempfile.mkdtemp(prefix="agent-names-dry-run-"))
+    skip = shutil.ignore_patterns("vendor", "cache", "*.lock")
     for sub in ("sessions", "agent-names"):
         if (cfg / sub).is_dir():
-            shutil.copytree(cfg / sub, tmp / sub)
+            shutil.copytree(cfg / sub, tmp / sub, ignore=skip, symlinks=True)
     (tmp / "sessions").mkdir(exist_ok=True)
     areas_file = os.environ.get("CAN_AREAS")
     if areas_file and Path(areas_file).is_file():
@@ -82,13 +86,13 @@ def sandbox():
         os.environ["CAN_AREAS"] = str(tmp / "areas-dry-run.json")
     cfg = tmp
     os.environ["CLAUDE_CONFIG_DIR"] = str(tmp)
-    return tmp
 
 
 def main():
     if dry_run:
-        tmp = sandbox()
+        tmp = Path(tempfile.mkdtemp(prefix="agent-names-dry-run-"))
         try:
+            sandbox(tmp)
             adopt()
         finally:
             shutil.rmtree(tmp, ignore_errors=True)

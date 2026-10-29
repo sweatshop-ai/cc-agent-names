@@ -530,6 +530,29 @@ check("a dry run previews exactly what the real run then does",
       preview == real and real, f"preview {preview}, real {real}")
 lap.close()
 
+# An areas.json elsewhere (CAN_AREAS) is copied too, and a dangling symlink in
+# the state directory does not stop the preview.
+lap = Laptop()
+outside = lap.cfg / "elsewhere-areas.json"
+outside.write_text(json.dumps({"areas": KLIUM}, indent=1))
+for w in WORKTREES:
+    lap.start(lap.path(w), env={"CAN_AREAS": str(outside)})
+sid = lap.start(lap.path(WORKTREES[0]), env={"CAN_AREAS": str(outside)})
+outside.write_text(json.dumps({"areas": KLIUM}, indent=1))     # spent again: a pick grows it
+for f in ("projects.json", "sessions.json", "reservations.json"):
+    (lap.cfg / "agent-names" / f).unlink(missing_ok=True)
+lap.write(sid, "derived-late")
+(lap.cfg / "agent-names" / "vendor").mkdir()
+(lap.cfg / "agent-names" / "vendor" / "gone").symlink_to(lap.cfg / "nowhere")
+before = outside.read_bytes()
+dry = subprocess.run([sys.executable, str(ROOT / "scripts" / "adopt_all.py"), "--dry-run"],
+                     env=lap.env({"CAN_AREAS": str(outside)}), capture_output=True, text=True,
+                     timeout=30)
+check("a dry run leaves an areas.json named by CAN_AREAS as it was",
+      outside.read_bytes() == before and "would rename derived-late" in dry.stdout,
+      f"stdout {dry.stdout!r} stderr {dry.stderr[-300:]!r}")
+lap.close()
+
 # --- "/" as an area path -------------------------------------------------------
 
 lap = Laptop(dict(KLIUM, everything={"paths": ["/"], "roster": ["Rhea"]}))
