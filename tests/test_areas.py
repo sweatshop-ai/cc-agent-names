@@ -553,6 +553,25 @@ check("a dry run leaves an areas.json named by CAN_AREAS as it was",
       f"stdout {dry.stdout!r} stderr {dry.stderr[-300:]!r}")
 lap.close()
 
+# A suffixed name the picker handed out (Dmitri-2) is ours too, even once
+# sessions.json no longer remembers it: adopt_all must not rename a live session
+# that holds one (Codex on #9).
+lap = Laptop(KLIUM)
+job = lap.start(lap.path(WORKTREES[0]), kind="bg")
+lap.write(job, "Dmitri-2", source=None, kind="bg")
+(lap.cfg / "agent-names" / "sessions.json").unlink(missing_ok=True)
+out = subprocess.run([sys.executable, str(ROOT / "scripts" / "adopt_all.py")],
+                     env=lap.env(), capture_output=True, text=True, timeout=30).stdout
+check("adopt_all keeps a live session's suffixed roster name",
+      lap.name(job) == "Dmitri-2" and "Dmitri-2 ->" not in out,
+      f"became {lap.name(job)!r}, stdout {out!r}")
+lap.write(job, "Nobody-2", source=None, kind="bg")
+subprocess.run([sys.executable, str(ROOT / "scripts" / "adopt_all.py")],
+               env=lap.env(), capture_output=True, text=True, timeout=30)
+check("but a suffix off a name outside the roster is still adopted",
+      lap.name(job) != "Nobody-2", f"stayed {lap.name(job)!r}")
+lap.close()
+
 # --- "/" as an area path -------------------------------------------------------
 
 lap = Laptop(dict(KLIUM, everything={"paths": ["/"], "roster": ["Rhea"]}))

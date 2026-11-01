@@ -25,6 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import areas  # noqa: E402
 import registry  # noqa: E402
+from pick_name import base_name  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 MACHINE_NAMED = ("derived", "auto", "collision")
@@ -66,6 +67,13 @@ def roster():
             return in_areas | {ln.strip() for ln in fh if ln.strip() and not ln.startswith("#")}
     except OSError:
         return in_areas
+
+
+def ours(name, pool):
+    """Whether the plugin handed this name out: a roster name, or one suffixed
+    off it (`Anna-2`) when the roster was spent."""
+    name = name or ""
+    return name in pool or base_name(name) in pool
 
 
 def sandbox(tmp):
@@ -111,7 +119,7 @@ def adopt():
             continue
         # A background job carries a label with no nameSource, so roster
         # membership is the only signal that the name is already ours.
-        if rec.get("nameSource") not in MACHINE_NAMED and (rec.get("name") or "") in pool:
+        if rec.get("nameSource") not in MACHINE_NAMED and ours(rec.get("name"), pool):
             skipped += 1
             continue
         if rec.get("nameSource") == "user":
@@ -128,7 +136,7 @@ def adopt():
                 fresh = json.load(fh)
             if fresh.get("nameSource") == "user":
                 continue
-            if fresh.get("nameSource") not in MACHINE_NAMED and (fresh.get("name") or "") in pool:
+            if fresh.get("nameSource") not in MACHINE_NAMED and ours(fresh.get("name"), pool):
                 continue
             fresh["name"] = new
             fresh.pop("nameSource", None)
