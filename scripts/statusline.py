@@ -237,13 +237,13 @@ def role_of(data):
             st = (config_dir() / "pm" / ".boss-sessions" / sid).lstat()
             if stat.S_ISREG(st.st_mode) and st.st_uid == os.getuid():
                 return "boss"
-        except OSError:
+        except (OSError, ValueError):
             pass
     pane = os.environ.get("TMUX_PANE", "")
     if pane:
         try:
             r = subprocess.run(["tmux", "display-message", "-p", "-t", pane, "#{@worker_role}"],
-                               capture_output=True, text=True, timeout=1)
+                               capture_output=True, text=True, errors="replace", timeout=1)
         except (OSError, subprocess.SubprocessError):
             return ""
         if r.returncode == 0 and r.stdout.strip() == "concierge":
