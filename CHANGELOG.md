@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **The status line labels a boss and a concierge**: `Anton [boss]`, `Fatima [concierge]`.
+  Display only; the name in the peer record, `ListAgents` and `SendMessage` stays bare.
+
 ## 0.8.0
 
 Names per work area: the same people come back to the same client.

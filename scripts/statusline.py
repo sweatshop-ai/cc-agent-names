@@ -14,6 +14,7 @@ Rendering strategy:
 """
 import json
 import os
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -222,6 +223,34 @@ def session_name(data):
     return "" if found == data.get("session_name") else found
 
 
+def role_of(data):
+    """`boss`, `concierge` or "" -- what the owner should read beside the name.
+
+    Display only. The name stays the bare address everywhere else; the label is
+    built here, after `session_name`, and printed, never stored. A boss is the
+    session claude-boss registered (`pm/.boss-sessions/<session id>`, a regular
+    file of ours); a concierge is the tmux pane stamped `@worker_role`.
+    """
+    sid = str(data.get("session_id") or "")
+    if sid and "/" not in sid and sid not in (".", ".."):
+        try:
+            st = (config_dir() / "pm" / ".boss-sessions" / sid).lstat()
+            if stat.S_ISREG(st.st_mode) and st.st_uid == os.getuid():
+                return "boss"
+        except OSError:
+            pass
+    pane = os.environ.get("TMUX_PANE", "")
+    if pane:
+        try:
+            r = subprocess.run(["tmux", "display-message", "-p", "-t", pane, "#{@worker_role}"],
+                               capture_output=True, text=True, timeout=1)
+        except (OSError, subprocess.SubprocessError):
+            return ""
+        if r.returncode == 0 and r.stdout.strip() == "concierge":
+            return "concierge"
+    return ""
+
+
 def run_inner(command, payload):
     try:
         r = subprocess.run(command, shell=True, input=payload, capture_output=True,
@@ -254,7 +283,9 @@ def main():
 
     name = session_name(data)
     badge = os.environ.get("AGENT_NAME_BADGE", "")
-    label = f"{badge} {name}".strip() if name else ""
+    role = role_of(data) if name else ""
+    shown = f"{name} [{role}]" if role else name
+    label = f"{badge} {shown}".strip() if name else ""
     # The name is the one thing on this line that is an identity rather than a
     # reading, so it should not be the dimmest thing on it. Bold, and bright
     # white unless told otherwise -- next to ccstatusline's yellows and cyans a
